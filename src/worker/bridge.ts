@@ -1,3 +1,4 @@
+import { cloneDesign } from '../core/clone';
 import type { ComputeRequest, ComputeResult, Design } from '../core/types';
 import { computeGeometry } from './compute';
 
@@ -57,14 +58,6 @@ function defaultCancelAnimationFrame(handle: number): void {
   }
 
   globalThis.clearTimeout(handle);
-}
-
-function cloneDesign(design: Design): Design {
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(design) as Design;
-  }
-
-  return JSON.parse(JSON.stringify(design)) as Design;
 }
 
 export class GeometryBridge {

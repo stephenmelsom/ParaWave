@@ -1,3 +1,4 @@
+import { cloneDesign } from '../core/clone';
 import { computeReadouts } from '../core/readouts';
 import type {
   ComputeResult,
@@ -103,14 +104,6 @@ export function createLandingDesign(): Design {
 }
 
 export const LANDING_DESIGN = createLandingDesign();
-
-function cloneDesign(design: Design): Design {
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(design) as Design;
-  }
-
-  return JSON.parse(JSON.stringify(design)) as Design;
-}
 
 export class DesignStore {
   design = $state<Design>(createLandingDesign());

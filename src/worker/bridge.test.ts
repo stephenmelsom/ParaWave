@@ -264,4 +264,30 @@ describe('geometry worker bridge', () => {
     expect(result.paths.length).toBeGreaterThan(0);
     expect(result.mesh).toBeUndefined();
   });
+
+  it('ignores worker results whose generation does not match the active request', () => {
+    const frames = new ManualFrames();
+    const worker = new FakeWorker();
+    const results: ComputeResult[] = [];
+    const bridge = createGeometryBridge({
+      onResult: (result) => results.push(result),
+      createWorker: () => worker,
+      requestAnimationFrame: frames.request,
+      cancelAnimationFrame: frames.cancel,
+    });
+
+    bridge.request(baseDesign);
+    frames.flush();
+
+    worker.onmessage?.({
+      data: {
+        generation: 0,
+        paths: [],
+        observedDepth: { min: 0, max: 0 },
+        totalSegments: 0,
+      },
+    } as unknown as MessageEvent<ComputeResult>);
+
+    expect(results).toHaveLength(0);
+  });
 });

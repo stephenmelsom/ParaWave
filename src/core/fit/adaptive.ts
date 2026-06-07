@@ -20,6 +20,7 @@ export const MAX_SEED_INTERVALS = 50_000;
 
 const BOUNDARY_EPSILON = 1e-9;
 const ERROR_SAMPLE_T_VALUES = [0.25, 0.5, 0.75] as const;
+const DEPTH_SAMPLE_T_VALUES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] as const;
 
 type Direction = -1 | 1;
 
@@ -150,7 +151,7 @@ function uniqueSortedBoundaries(boundaries: number[]): number[] {
 
 export function seedBoundaries(design: Design, xCenter: number): number[] {
   if (!Number.isFinite(design.H) || design.H <= 0) {
-    return [0, design.H];
+    return [];
   }
 
   const lambdaMin = minimumWavelength(design.wave);
@@ -250,7 +251,7 @@ function observeDepth(path: FittedPath): { min: number; max: number } {
   let max = Number.NEGATIVE_INFINITY;
 
   for (const segment of path.segments) {
-    for (const t of ERROR_SAMPLE_T_VALUES) {
+    for (const t of DEPTH_SAMPLE_T_VALUES) {
       const point = evaluateBezier(segment, t);
       min = Math.min(min, point.z);
       max = Math.max(max, point.z);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   SEGMENT_WARN,
+  bezierTForY,
   buildMesh,
   collectRadialKinks,
   computeReadouts,
@@ -11,6 +12,7 @@ import {
   createRadialField,
   createWaveField,
   evaluateBezier,
+  evaluateBezierAtY,
   fitPath,
   formatForDisplay,
   fromDisplayValue,
@@ -325,5 +327,22 @@ describe('mesh construction', () => {
     expect(mesh.finRanges[1]).toBeGreaterThan(0);
     expect(mesh.finRanges[2]).toBe(mesh.finRanges[1]);
     expect(Math.max(...mesh.indices)).toBeLessThan(vertexCount);
+  });
+});
+
+describe('bezierTForY and evaluateBezierAtY', () => {
+  it('evaluateBezierAtY returns the same point as evaluateBezier at the matching t', () => {
+    const seg = hermiteCubic({ start: { y: 0, z: 5, dzdy: 0 }, end: { y: 10, z: 15, dzdy: 0 } });
+    const atY5 = evaluateBezierAtY(seg, 5);
+    const atT05 = evaluateBezier(seg, 0.5);
+
+    expect(atY5.y).toBeCloseTo(atT05.y, 10);
+    expect(atY5.z).toBeCloseTo(atT05.z, 10);
+  });
+
+  it('bezierTForY returns 0 for a zero-span segment', () => {
+    const seg = hermiteCubic({ start: { y: 5, z: 10, dzdy: 0 }, end: { y: 5, z: 10, dzdy: 0 } });
+
+    expect(bezierTForY(seg, 5)).toBe(0);
   });
 });

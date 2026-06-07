@@ -18,20 +18,16 @@ export function computeGeometry(request: ComputeRequest): ComputeResult {
   return result;
 }
 
-function transferBuffer(buffer: ArrayBufferLike): Transferable {
-  return buffer as ArrayBuffer;
-}
-
 export function meshTransferList(mesh: MeshBuffers | undefined): Transferable[] {
   if (!mesh) {
     return [];
   }
 
   return [
-    transferBuffer(mesh.positions.buffer),
-    transferBuffer(mesh.indices.buffer),
-    transferBuffer(mesh.normals.buffer),
-    transferBuffer(mesh.finRanges.buffer),
+    mesh.positions.buffer as Transferable,
+    mesh.indices.buffer as Transferable,
+    mesh.normals.buffer as Transferable,
+    mesh.finRanges.buffer as Transferable,
   ];
 }
 

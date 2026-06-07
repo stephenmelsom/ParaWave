@@ -1,5 +1,6 @@
 import packageMetadata from '../../package.json';
 
+import { cloneDesign } from '../core/clone';
 import type { Design, Unit } from '../core/types';
 
 export const MANIFEST_FILENAME = 'parawave-design.json';
@@ -26,14 +27,6 @@ export interface ParaWaveManifest {
 export interface CreateManifestOptions {
   appVersion?: string;
   exportedAt?: Date | string;
-}
-
-function cloneDesign(design: Design): Design {
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(design) as Design;
-  }
-
-  return JSON.parse(JSON.stringify(design)) as Design;
 }
 
 function exportTimestamp(value: Date | string | undefined): string {

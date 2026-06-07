@@ -75,6 +75,11 @@ describe('export manifest', () => {
     expect(manifest.design.H).toBe(600);
     design.H = 600;
   });
+
+  it('rejects negative or fractional fin counts', () => {
+    expect(() => createDesignManifest(design, -1)).toThrow(RangeError);
+    expect(() => createDesignManifest(design, 0.5)).toThrow(RangeError);
+  });
 });
 
 describe('zip export', () => {
@@ -104,6 +109,12 @@ describe('zip export', () => {
   it('uses the fin-count digit width above three digits', () => {
     expect(slatFilename(0, 1000)).toBe('slat_0001.svg');
     expect(slatFilename(999, 1000)).toBe('slat_1000.svg');
+  });
+
+  it('rejects out-of-range slat indices', () => {
+    expect(() => slatFilename(-1, 10)).toThrow(RangeError);
+    expect(() => slatFilename(10, 10)).toThrow(RangeError);
+    expect(() => slatFilename(0.5, 10)).toThrow(RangeError);
   });
 
   it('rejects archives whose SVG count disagrees with the manifest', async () => {
