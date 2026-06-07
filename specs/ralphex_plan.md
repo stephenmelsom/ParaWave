@@ -78,35 +78,35 @@ dependency-free TypeScript — no DOM, no Three.js, no Svelte. Fully testable he
 
 #### Types & units
 
-- [ ] **2.1** Write `core/types.ts` — `Design`, `WaveConfig`, `Source` (discriminated unions), `FittedPath`, `BezierSeg`, `ComputeRequest`, `ComputeResult` exactly as specified in TECH_SPEC §5.1 / §5.3.
-- [ ] **2.2** Write `core/units.ts` — canonical mm storage; format-for-display (mm or inch) with correct decimal precision; `parseFromDisplay` (no silent clamping); round-trip safe. *(FR-IN.2, SRS §1.7-F)*
+- [x] **2.1** Write `core/types.ts` — `Design`, `WaveConfig`, `Source` (discriminated unions), `FittedPath`, `BezierSeg`, `ComputeRequest`, `ComputeResult` exactly as specified in TECH_SPEC §5.1 / §5.3.
+- [x] **2.2** Write `core/units.ts` — canonical mm storage; format-for-display (mm or inch) with correct decimal precision; `parseFromDisplay` (no silent clamping); round-trip safe. *(FR-IN.2, SRS §1.7-F)*
 
 #### Wave families
 
-- [ ] **2.3** Write `core/wave/types.ts` — `WaveField` interface exposing `f(x, y)` and `dfdy(x, y)`.
-- [ ] **2.4** Write `core/wave/diagonal.ts` — `f = sin(2π(x·cosθ + y·sinθ)/λ + φ)`, analytic `∂f/∂y`. Must emit `f ∈ [−1, 1]` by construction. *(FR-WAVE.1, SRS §1.7-E)*
-- [ ] **2.5** Write `core/wave/radial.ts` — `f = a(r)·sin(2π·r/λ + φ)`, exponential decay `a(r) = e^{−k·r}`, analytic `∂f/∂y` (with the `r=0` guard). Center may lie outside the piece. *(FR-WAVE.2, SRS §1.7-F)*
-- [ ] **2.6** Write `core/wave/interference.ts` — weighted sum of `K ∈ [1,8]` diagonal or radial sources, divided by `Σ|weights|`; derivative passthrough. *(FR-WAVE.3)*
-- [ ] **2.7** Write `core/wave/field.ts` — factory that builds an evaluable `WaveField` (+ derivative) from a `WaveConfig`. *(TECH_SPEC §6.2)*
+- [x] **2.3** Write `core/wave/types.ts` — `WaveField` interface exposing `f(x, y)` and `dfdy(x, y)`.
+- [x] **2.4** Write `core/wave/diagonal.ts` — `f = sin(2π(x·cosθ + y·sinθ)/λ + φ)`, analytic `∂f/∂y`. Must emit `f ∈ [−1, 1]` by construction. *(FR-WAVE.1, SRS §1.7-E)*
+- [x] **2.5** Write `core/wave/radial.ts` — `f = a(r)·sin(2π·r/λ + φ)`, exponential decay `a(r) = e^{−k·r}`, analytic `∂f/∂y` (with the `r=0` guard). Center may lie outside the piece. *(FR-WAVE.2, SRS §1.7-F)*
+- [x] **2.6** Write `core/wave/interference.ts` — weighted sum of `K ∈ [1,8]` diagonal or radial sources, divided by `Σ|weights|`; derivative passthrough. *(FR-WAVE.3)*
+- [x] **2.7** Write `core/wave/field.ts` — factory that builds an evaluable `WaveField` (+ derivative) from a `WaveConfig`. *(TECH_SPEC §6.2)*
 
 #### Geometry primitives
 
-- [ ] **2.8** Write `core/geometry.ts` — `N = floor((W + gap) / (slatWidth + gap))`; centerline array `x_i` (centered); protrusion map `p(x, y) = pMin + (D − pMin)·(f+1)/2` using analytic `±1` bounds. *(FR-GEO.1–.4)*
-- [ ] **2.9** Write `core/readouts.ts` — pure function `Design → ReadoutValues` (N, spanned width, end margin, stock thickness, declared depth range, total footprint). Must recompute live. *(FR-IN.4)*
+- [x] **2.8** Write `core/geometry.ts` — `N = floor((W + gap) / (slatWidth + gap))`; centerline array `x_i` (centered); protrusion map `p(x, y) = pMin + (D − pMin)·(f+1)/2` using analytic `±1` bounds. *(FR-GEO.1–.4)*
+- [x] **2.9** Write `core/readouts.ts` — pure function `Design → ReadoutValues` (N, spanned width, end margin, stock thickness, declared depth range, total footprint). Must recompute live. *(FR-IN.4)*
 
 #### Curve-fit engine
 
-- [ ] **2.10** Write `core/fit/hermite.ts` — one analytic Hermite cubic from `(p, dp/dy)` endpoints, yielding four Bézier control points. *(SRS §1.7-D, TECH_SPEC §6.3)*
-- [ ] **2.11** Write `core/fit/adaptive.ts` — wavelength-tied seeding (partition `[0, H]` at `λmin / SEED_PER_WAVELENGTH`); kink injection for exact radial-center coincidences; recursive midpoint subdivision with `MAX_DEPTH` cap; emits a `BezierSeg[]` that stays ≤ `fitTolerance` from the true wave. *(SRS §1.7-D, TECH_SPEC §6.3–6.4, TS-D3/D4)*
+- [x] **2.10** Write `core/fit/hermite.ts` — one analytic Hermite cubic from `(p, dp/dy)` endpoints, yielding four Bézier control points. *(SRS §1.7-D, TECH_SPEC §6.3)*
+- [x] **2.11** Write `core/fit/adaptive.ts` — wavelength-tied seeding (partition `[0, H]` at `λmin / SEED_PER_WAVELENGTH`); kink injection for exact radial-center coincidences; recursive midpoint subdivision with `MAX_DEPTH` cap; emits a `BezierSeg[]` that stays ≤ `fitTolerance` from the true wave. *(SRS §1.7-D, TECH_SPEC §6.3–6.4, TS-D3/D4)*
 
 #### SVG & validation
 
-- [ ] **2.12** Write `core/svg.ts` — one closed path per slat: back/top/bottom as line segments, front edge as the fitted Béziers. Always emitted in mm, `viewBox` `1u = 1mm`, coordinates at fixed 4 dp. Returns the SVG string. *(FR-EXP.1/.2/.9, TS-D8, FR-GEO.6)*
-- [ ] **2.13** Write `core/validation.ts` — pure function `Design → ValidationResult` (typed issues with field, tier, message). Implements all FR-VAL.1–.11 conditions using the SRS's exact proposed message text. *(FR-VAL.1–.11)*
+- [x] **2.12** Write `core/svg.ts` — one closed path per slat: back/top/bottom as line segments, front edge as the fitted Béziers. Always emitted in mm, `viewBox` `1u = 1mm`, coordinates at fixed 4 dp. Returns the SVG string. *(FR-EXP.1/.2/.9, TS-D8, FR-GEO.6)*
+- [x] **2.13** Write `core/validation.ts` — pure function `Design → ValidationResult` (typed issues with field, tier, message). Implements all FR-VAL.1–.11 conditions using the SRS's exact proposed message text. *(FR-VAL.1–.11)*
 
 #### 3D mesh helper
 
-- [ ] **2.14** Write `core/mesh.ts` — builds a single merged `positions`/`indices`/`normals` typed-array set + `finRanges` table from the `FittedPath[]`, by tessellating and extruding each slat along X by `slatWidth`. *(TECH_SPEC §8.1, TS-D5)*
+- [x] **2.14** Write `core/mesh.ts` — builds a single merged `positions`/`indices`/`normals` typed-array set + `finRanges` table from the `FittedPath[]`, by tessellating and extruding each slat along X by `slatWidth`. *(TECH_SPEC §8.1, TS-D5)*
 
 ---
 
