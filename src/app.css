@@ -67,7 +67,7 @@
   --edge-strong: rgba(240, 220, 180, 0.16);
   --ink: #f2e9d8;
   --ink-dim: #a99a82;
-  --ink-faint: #6f6452;
+  --ink-faint: #948673;
   --gold-deep: #a4702f;
   --gold: #e2a44f;
   --gold-bright: #f6c97d;
@@ -85,9 +85,18 @@
   --warn-bg: rgba(230, 179, 74, 0.1);
   --ok: #9bbd7a;
   --grain-opacity: 0.05;
+
+  --type-wordmark: 600 2rem/1 'Fraunces', serif;
+  --type-h2: 500 1.18rem/1.2 'Fraunces', serif;
+  --type-readout-xl: 500 1.6rem/1 'IBM Plex Mono', monospace;
+  --type-body: 400 0.84rem/1.45 'IBM Plex Mono', monospace;
+  --type-value: 500 0.84rem/1.35 'IBM Plex Mono', monospace;
+  --type-label: 500 0.68rem/1.2 'IBM Plex Mono', monospace;
+
   font-family: 'IBM Plex Mono', monospace;
   color: var(--ink);
   background: var(--bg);
+  font-variant-numeric: tabular-nums;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -98,6 +107,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  font: var(--type-body);
 }
 
 * {
@@ -109,6 +119,33 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+button,
+input,
+select,
+textarea,
+summary {
+  font-variant-numeric: tabular-nums;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 #app {

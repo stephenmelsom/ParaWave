@@ -14,12 +14,22 @@
   ];
 </script>
 
-<div class="unit-toggle" role="group" aria-label="Display units">
+<div
+  class="unit-toggle"
+  role="group"
+  aria-label="Display units"
+  aria-describedby="unit-toggle-help"
+>
+  <p id="unit-toggle-help" class="sr-only">
+    Toggle the display unit without changing the stored millimeter design
+    values.
+  </p>
   {#each units as unit (unit.value)}
     <button
       type="button"
       class:active={value === unit.value}
       aria-pressed={value === unit.value}
+      aria-describedby="unit-toggle-help"
       onclick={() => onChange(unit.value)}
     >
       {unit.label}
@@ -39,9 +49,13 @@
     position: relative;
     min-height: 34px;
     border: 0;
+    border-radius: 0;
     color: var(--ink-dim);
     background: transparent;
     cursor: pointer;
+    transition:
+      color 140ms ease,
+      background 140ms ease;
   }
 
   button + button {
@@ -60,6 +74,7 @@
 
   button.active {
     color: var(--ink);
+    background: color-mix(in srgb, var(--panel-2) 82%, var(--gold-glow));
   }
 
   button.active::after {
@@ -69,5 +84,17 @@
   button:focus-visible {
     outline: 2px solid var(--gold-bright);
     outline-offset: 2px;
+  }
+
+  @media (max-width: 819px) {
+    button {
+      min-height: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
   }
 </style>

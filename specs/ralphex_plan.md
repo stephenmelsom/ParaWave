@@ -168,17 +168,17 @@ Goal: clicking Export downloads a correctly named, correctly scaled zip of per-s
 
 Goal: the app looks and feels like the "Workshop Instrument" described in DESIGN §1 — not a generic web form.
 
-- [ ] **7.1** Define all CSS custom properties in `:root` per DESIGN §2.1 (all color tokens). Reference only tokens in component stylesheets; no raw hex in components.
-- [ ] **7.2** Apply typography tokens per DESIGN §3.2: Fraunces for wordmark + section headers; IBM Plex Mono for all labels, values, readouts, and controls. Enforce `font-variant-numeric: tabular-nums` on all numeric outputs.
-- [ ] **7.3** Style the three-column layout with correct column widths (360px rail · 1fr viewport · 320px right), 64px header, 8px base grid, hairline dividers (`--edge`), tight density per DESIGN §4.3.
-- [ ] **7.4** Style sliders: 2px track, gold fill to thumb, diamond/square thumb with `--gold-glow` on hover/focus, `--danger` track on invalid state per DESIGN §5.1.
-- [ ] **7.5** Style the 3D viewport frame: corner crosshairs/ticks in `--cool`, blueprint grid (`--grid` minor / `--grid-strong` major), warm `--gold-glow` radial behind the canvas, film-grain overlay at `--grain-opacity`. *(DESIGN §5.7, §8)*
-- [ ] **7.6** Set Three.js material to read as honey-oak wood: `--wave-mid` base, low metalness, medium roughness, warm key + cool fill lighting, `--wave-highlight` specular on crests. *(DESIGN §8)*
-- [ ] **7.7** Implement page-load reveal animation: header → rail groups stagger → viewport corner crosshairs → piece fade-up. Implement gentle auto-orbit that stops on first user interaction. *(DESIGN §6)*
-- [ ] **7.8** Implement all reduced-motion overrides (`@media (prefers-reduced-motion: reduce)`): disable stagger, auto-orbit, validation flash; state changes become instant. *(DESIGN §6)*
-- [ ] **7.9** Implement responsive breakpoints per DESIGN §9: narrow columns at 820–1199px; tabbed instrument panel at 600–819px (Controls / Inspector / Readouts tabs); 44px touch targets; "best viewed on a larger screen" fallback below 600px.
-- [ ] **7.10** Audit every text/control pair against WCAG AA: `--ink-dim` on `--panel`; gold-on-charcoal large text; adjust token hex values as needed (roles fixed, values tunable per DESIGN §2.3). *(NFR-A11Y.2)*
-- [ ] **7.11** Add `aria-label` / `aria-describedby` to every control; `aria-live="polite"` on readouts and validation messages; logical tab order (header → rail → viewport → inspector → export). Focus-visible ring `2px --gold-bright`. *(NFR-A11Y.1, DESIGN §10)*
+- [x] **7.1** Define all CSS custom properties in `:root` per DESIGN §2.1 (all color tokens). Reference only tokens in component stylesheets; no raw hex in components.
+- [x] **7.2** Apply typography tokens per DESIGN §3.2: Fraunces for wordmark + section headers; IBM Plex Mono for all labels, values, readouts, and controls. Enforce `font-variant-numeric: tabular-nums` on all numeric outputs.
+- [x] **7.3** Style the three-column layout with correct column widths (360px rail · 1fr viewport · 320px right), 64px header, 8px base grid, hairline dividers (`--edge`), tight density per DESIGN §4.3.
+- [x] **7.4** Style sliders: 2px track, gold fill to thumb, diamond/square thumb with `--gold-glow` on hover/focus, `--danger` track on invalid state per DESIGN §5.1.
+- [x] **7.5** Style the 3D viewport frame: corner crosshairs/ticks in `--cool`, blueprint grid (`--grid` minor / `--grid-strong` major), warm `--gold-glow` radial behind the canvas, film-grain overlay at `--grain-opacity`. *(DESIGN §5.7, §8)*
+- [x] **7.6** Set Three.js material to read as honey-oak wood: `--wave-mid` base, low metalness, medium roughness, warm key + cool fill lighting, `--wave-highlight` specular on crests. *(DESIGN §8)*
+- [x] **7.7** Implement page-load reveal animation: header → rail groups stagger → viewport corner crosshairs → piece fade-up. Implement gentle auto-orbit that stops on first user interaction. *(DESIGN §6)*
+- [x] **7.8** Implement all reduced-motion overrides (`@media (prefers-reduced-motion: reduce)`): disable stagger, auto-orbit, validation flash; state changes become instant. *(DESIGN §6)*
+- [x] **7.9** Implement responsive breakpoints per DESIGN §9: narrow columns at 820–1199px; tabbed instrument panel at 600–819px (Controls / Inspector / Readouts tabs); 44px touch targets; "best viewed on a larger screen" fallback below 600px.
+- [x] **7.10** Audit every text/control pair against WCAG AA: `--ink-dim` on `--panel`; gold-on-charcoal large text; adjust token hex values as needed (roles fixed, values tunable per DESIGN §2.3). *(NFR-A11Y.2)*
+- [x] **7.11** Add `aria-label` / `aria-describedby` to every control; `aria-live="polite"` on readouts and validation messages; logical tab order (header → rail → viewport → inspector → export). Focus-visible ring `2px --gold-bright`. *(NFR-A11Y.1, DESIGN §10)*
 
 ---
 

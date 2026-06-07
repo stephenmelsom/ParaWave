@@ -61,7 +61,12 @@
   }
 </script>
 
-<section class="readouts" aria-label="Design readouts" aria-live="polite">
+<section
+  class="readouts"
+  aria-label="Design readouts"
+  aria-live="polite"
+  aria-atomic="false"
+>
   <header>
     <p>readouts</p>
     <span>{totalSegments.toLocaleString()} segments</span>
@@ -95,8 +100,7 @@
         {actualDepthRange ? rangeLabel(actualDepthRange) : 'computing'}
       </dd>
       <div class="depth-bar" aria-hidden="true">
-        <span
-          style={`--used-start:${usedStart}%; --used-width:${usedWidth}%`}
+        <span style={`--used-start:${usedStart}%; --used-width:${usedWidth}%`}
         ></span>
       </div>
     </div>
@@ -152,7 +156,7 @@
 
   .hero-readout strong {
     color: var(--gold-bright);
-    font-size: 1.6rem;
+    font: var(--type-readout-xl);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
   }

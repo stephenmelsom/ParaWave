@@ -43,9 +43,11 @@ function defaultRequestAnimationFrame(callback: FrameRequestCallback): number {
     return globalThis.requestAnimationFrame(callback);
   }
 
-  return globalThis.setTimeout(() => {
-    callback(globalThis.performance?.now() ?? Date.now());
-  }, 0);
+  return Number(
+    globalThis.setTimeout(() => {
+      callback(globalThis.performance?.now() ?? Date.now());
+    }, 0),
+  );
 }
 
 function defaultCancelAnimationFrame(handle: number): void {
@@ -88,8 +90,10 @@ export class GeometryBridge {
     this.onError = options.onError;
     this.onFallback = options.onFallback;
     this.createWorker = options.createWorker ?? defaultCreateWorker;
-    this.requestFrame = options.requestAnimationFrame ?? defaultRequestAnimationFrame;
-    this.cancelFrame = options.cancelAnimationFrame ?? defaultCancelAnimationFrame;
+    this.requestFrame =
+      options.requestAnimationFrame ?? defaultRequestAnimationFrame;
+    this.cancelFrame =
+      options.cancelAnimationFrame ?? defaultCancelAnimationFrame;
   }
 
   get usingSynchronousFallback(): boolean {
@@ -190,7 +194,9 @@ export class GeometryBridge {
     return worker;
   }
 
-  private readonly handleWorkerMessage = (event: MessageEvent<ComputeResult>): void => {
+  private readonly handleWorkerMessage = (
+    event: MessageEvent<ComputeResult>,
+  ): void => {
     this.finish(event.data);
   };
 
@@ -262,7 +268,9 @@ export class GeometryBridge {
   }
 }
 
-export function createGeometryBridge(options: GeometryBridgeOptions): GeometryBridge {
+export function createGeometryBridge(
+  options: GeometryBridgeOptions,
+): GeometryBridge {
   return new GeometryBridge(options);
 }
 

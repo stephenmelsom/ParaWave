@@ -26,8 +26,12 @@
   type="button"
   disabled={!enabled || working}
   aria-busy={working}
+  aria-describedby="export-button-help"
   onclick={() => onExport()}
 >
+  <span id="export-button-help" class="sr-only">
+    Export is disabled whenever hard validation blocks are active.
+  </span>
   {#if working}
     <span aria-hidden="true">…packing {paddedCount} slats</span>
     <span class="sr-only">Packing {finCount} slats for export</span>
@@ -42,11 +46,16 @@
     min-width: 164px;
     min-height: 40px;
     border: 1px solid var(--gold);
+    border-radius: 0;
     color: var(--bg);
     background: var(--gold);
     box-shadow: 0 0 24px var(--gold-glow);
     font-weight: 500;
     cursor: pointer;
+    transition:
+      border-color 140ms ease,
+      background 140ms ease,
+      box-shadow 140ms ease;
   }
 
   .export-button:hover:not(:disabled) {
@@ -75,5 +84,17 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     clip-path: inset(50%);
+  }
+
+  @media (max-width: 819px) {
+    .export-button {
+      min-height: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .export-button {
+      transition: none;
+    }
   }
 </style>

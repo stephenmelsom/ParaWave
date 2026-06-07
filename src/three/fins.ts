@@ -3,9 +3,12 @@ import * as THREE from 'three';
 import type { MeshBuffers } from '../core/types';
 import { getFinRange } from './picking';
 
-const WOOD_COLOR = 0xd59649;
-const WOOD_EMISSIVE = 0x201206;
-const HIGHLIGHT_COLOR = 0xf6c97d;
+export const FIN_MATERIAL_COLORS = {
+  wood: '#c8843a',
+  woodShadow: '#8a5a2b',
+  woodHighlight: '#f2c178',
+  selected: '#f6c97d',
+} as const;
 
 export interface FinViewMaterials {
   base: THREE.MeshStandardMaterial;
@@ -14,19 +17,25 @@ export interface FinViewMaterials {
 
 export function createFinMaterials(): FinViewMaterials {
   return {
-    base: new THREE.MeshStandardMaterial({
-      color: WOOD_COLOR,
-      emissive: WOOD_EMISSIVE,
-      emissiveIntensity: 0.12,
-      metalness: 0.04,
-      roughness: 0.58,
+    base: new THREE.MeshPhysicalMaterial({
+      color: FIN_MATERIAL_COLORS.wood,
+      emissive: FIN_MATERIAL_COLORS.woodShadow,
+      emissiveIntensity: 0.08,
+      metalness: 0.03,
+      roughness: 0.54,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.48,
+      specularColor: FIN_MATERIAL_COLORS.woodHighlight,
+      specularIntensity: 0.42,
     }),
-    highlight: new THREE.MeshStandardMaterial({
-      color: HIGHLIGHT_COLOR,
-      emissive: HIGHLIGHT_COLOR,
+    highlight: new THREE.MeshPhysicalMaterial({
+      color: FIN_MATERIAL_COLORS.selected,
+      emissive: FIN_MATERIAL_COLORS.selected,
       emissiveIntensity: 0.38,
       metalness: 0.02,
       roughness: 0.42,
+      specularColor: FIN_MATERIAL_COLORS.woodHighlight,
+      specularIntensity: 0.58,
       transparent: true,
       opacity: 0.96,
       polygonOffset: true,
@@ -36,10 +45,15 @@ export function createFinMaterials(): FinViewMaterials {
   };
 }
 
-export function geometryFromMeshBuffers(mesh: MeshBuffers): THREE.BufferGeometry {
+export function geometryFromMeshBuffers(
+  mesh: MeshBuffers,
+): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
 
-  geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  geometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(mesh.positions, 3),
+  );
   geometry.setAttribute('normal', new THREE.BufferAttribute(mesh.normals, 3));
   geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
   geometry.computeBoundingBox();
@@ -65,7 +79,11 @@ export function selectedFinGeometry(
   const normals: number[] = [];
   const indices: number[] = [];
 
-  for (let sourceIndexOffset = indexStart; sourceIndexOffset < indexEnd; sourceIndexOffset += 1) {
+  for (
+    let sourceIndexOffset = indexStart;
+    sourceIndexOffset < indexEnd;
+    sourceIndexOffset += 1
+  ) {
     const sourceVertexIndex = mesh.indices[sourceIndexOffset];
 
     if (sourceVertexIndex === undefined) {
@@ -109,7 +127,10 @@ export function selectedFinGeometry(
 
   const geometry = new THREE.BufferGeometry();
 
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geometry.setIndex(indices);
   geometry.computeBoundingBox();
@@ -144,7 +165,10 @@ export class FinsView {
       return;
     }
 
-    this.baseMesh = new THREE.Mesh(geometryFromMeshBuffers(mesh), this.materials.base);
+    this.baseMesh = new THREE.Mesh(
+      geometryFromMeshBuffers(mesh),
+      this.materials.base,
+    );
     this.baseMesh.name = 'parawave-fins-merged';
     this.baseMesh.castShadow = true;
     this.baseMesh.receiveShadow = true;
@@ -191,7 +215,10 @@ export class FinsView {
       return;
     }
 
-    const geometry = selectedFinGeometry(this.meshBuffers, this.selectedFinIndex);
+    const geometry = selectedFinGeometry(
+      this.meshBuffers,
+      this.selectedFinIndex,
+    );
 
     if (!geometry) {
       return;

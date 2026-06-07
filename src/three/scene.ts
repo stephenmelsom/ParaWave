@@ -21,6 +21,7 @@ export type WebGLProbeCanvas = {
 };
 
 export type CanvasFactory = () => WebGLProbeCanvas | null;
+export type MotionQuery = (query: string) => Pick<MediaQueryList, 'matches'>;
 
 function defaultCanvasFactory(): HTMLCanvasElement | null {
   if (typeof document === 'undefined') {
@@ -30,7 +31,9 @@ function defaultCanvasFactory(): HTMLCanvasElement | null {
   return document.createElement('canvas');
 }
 
-export function detectWebGLSupport(canvasFactory: CanvasFactory = defaultCanvasFactory): boolean {
+export function detectWebGLSupport(
+  canvasFactory: CanvasFactory = defaultCanvasFactory,
+): boolean {
   try {
     const canvas = canvasFactory();
 
@@ -40,15 +43,27 @@ export function detectWebGLSupport(canvasFactory: CanvasFactory = defaultCanvasF
 
     return Boolean(
       canvas.getContext('webgl2') ||
-        canvas.getContext('webgl') ||
-        canvas.getContext('experimental-webgl'),
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl'),
     );
   } catch {
     return false;
   }
 }
 
-function setRendererSize(renderer: THREE.WebGLRenderer, host: HTMLElement): void {
+export function prefersReducedMotion(
+  query: MotionQuery | undefined = typeof window === 'undefined' ||
+  typeof window.matchMedia !== 'function'
+    ? undefined
+    : window.matchMedia.bind(window),
+): boolean {
+  return query?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
+function setRendererSize(
+  renderer: THREE.WebGLRenderer,
+  host: HTMLElement,
+): void {
   const width = Math.max(1, host.clientWidth);
   const height = Math.max(1, host.clientHeight);
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -58,7 +73,7 @@ function setRendererSize(renderer: THREE.WebGLRenderer, host: HTMLElement): void
 }
 
 function createBackGrid(): THREE.GridHelper {
-  const grid = new THREE.GridHelper(1200, 24, 0x405868, 0x273846);
+  const grid = new THREE.GridHelper(1200, 24, '#4a5e6b', '#263642');
 
   grid.name = 'parawave-blueprint-grid';
   grid.rotation.x = Math.PI / 2;
@@ -79,7 +94,10 @@ function createBackGrid(): THREE.GridHelper {
   return grid;
 }
 
-export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {}): WaveSceneController {
+export function createWaveScene(
+  host: HTMLElement,
+  options: WaveSceneOptions = {},
+): WaveSceneController {
   if (!detectWebGLSupport()) {
     throw new Error('WebGL is not available.');
   }
@@ -101,12 +119,13 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
   let resizeObserver: ResizeObserver | null = null;
   let hasFramedInitialMesh = false;
   let pointerDown: { x: number; y: number } | null = null;
+  let userHasInteracted = false;
 
   scene.add(createBackGrid());
 
-  const ambient = new THREE.AmbientLight(0xf2e4d1, 0.5);
-  const warmKey = new THREE.DirectionalLight(0xffd5a0, 2.3);
-  const coolFill = new THREE.DirectionalLight(0x8fb2c8, 0.95);
+  const ambient = new THREE.AmbientLight('#f2e9d8', 0.48);
+  const warmKey = new THREE.DirectionalLight('#f2c178', 2.35);
+  const coolFill = new THREE.DirectionalLight('#7e9bb0', 0.92);
 
   warmKey.position.set(-260, 420, 320);
   coolFill.position.set(320, 180, 260);
@@ -125,6 +144,8 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
   controls.dampingFactor = 0.08;
   controls.enablePan = true;
   controls.enableZoom = true;
+  controls.autoRotate = !prefersReducedMotion();
+  controls.autoRotateSpeed = 0.32;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY_PAN,
@@ -153,9 +174,11 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
     fins.group.position.set(-center.x, -center.y, -center.z);
 
     const radius = Math.max(size.length() / 2, 1);
-    const distance = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2));
+    const distance =
+      radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2));
 
-    camera.aspect = Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
+    camera.aspect =
+      Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
     camera.near = Math.max(0.1, radius / 100);
     camera.far = Math.max(2000, radius * 8);
     camera.position.set(radius * 0.72, radius * 0.42, distance * 1.12);
@@ -166,7 +189,8 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
 
   function resize(): void {
     setRendererSize(renderer, host);
-    camera.aspect = Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
+    camera.aspect =
+      Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
     camera.updateProjectionMatrix();
   }
 
@@ -187,14 +211,28 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
     pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
     raycaster.setFromCamera(pointer, camera);
 
-    const selected = pickFinFromHits(raycaster.intersectObject(fins.pickTarget, false), meshBuffers.finRanges);
+    const selected = pickFinFromHits(
+      raycaster.intersectObject(fins.pickTarget, false),
+      meshBuffers.finRanges,
+    );
 
     if (selected !== null) {
       options.onFinSelected?.(selected);
     }
   }
 
+  function stopAutoOrbit(): void {
+    if (userHasInteracted) {
+      return;
+    }
+
+    userHasInteracted = true;
+    controls.autoRotate = false;
+    options.onUserInteraction?.();
+  }
+
   function handlePointerDown(event: PointerEvent): void {
+    stopAutoOrbit();
     pointerDown = {
       x: event.clientX,
       y: event.clientY,
@@ -206,7 +244,10 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
       return;
     }
 
-    const distance = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+    const distance = Math.hypot(
+      event.clientX - pointerDown.x,
+      event.clientY - pointerDown.y,
+    );
     pointerDown = null;
 
     if (distance <= 5) {
@@ -214,9 +255,7 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
     }
   }
 
-  controls.addEventListener('start', () => {
-    options.onUserInteraction?.();
-  });
+  controls.addEventListener('start', stopAutoOrbit);
   renderer.domElement.addEventListener('pointerdown', handlePointerDown);
   renderer.domElement.addEventListener('pointerup', handlePointerUp);
 
@@ -246,6 +285,7 @@ export function createWaveScene(host: HTMLElement, options: WaveSceneOptions = {
 
     dispose(): void {
       window.cancelAnimationFrame(frameHandle);
+      controls.removeEventListener('start', stopAutoOrbit);
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
       renderer.domElement.removeEventListener('pointerup', handlePointerUp);
       resizeObserver?.disconnect();

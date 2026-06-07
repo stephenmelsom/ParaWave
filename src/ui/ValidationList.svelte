@@ -8,10 +8,17 @@
   let { validation }: Props = $props();
 </script>
 
-<section class="validation" aria-label="Validation" aria-live="polite">
+<section
+  class="validation"
+  aria-label="Validation"
+  aria-live="polite"
+  aria-atomic="false"
+>
   <header>
     <p>validation</p>
-    <span>{validation.hardBlocks.length} blocks / {validation.warnings.length} warnings</span>
+    <span
+      >{validation.hardBlocks.length} blocks / {validation.warnings.length} warnings</span
+    >
   </header>
 
   {#if validation.issues.length === 0}
