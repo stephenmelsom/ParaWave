@@ -127,11 +127,11 @@ falls back to synchronous on CSP failure.
 Goal: a live Three.js scene with orbit controls, fin selection, and a 2D panel rendering the
 identical fitted path.
 
-- [ ] **4.1** Write `three/scene.ts` — perspective camera, neutral lighting (warm key + cool fill for the `wave.jpg` look), `OrbitControls` with touch enabled, canvas resize handler. Frame the default landing design on first mesh. *(FR-VIZ.1, TECH_SPEC §8.2)*
-- [ ] **4.2** Write `three/fins.ts` — wrap the incoming merged `BufferGeometry` (one draw call); a second overlay mesh (slice of the selected fin's sub-buffer) with a highlight material. *(TECH_SPEC §8.3, TS-D5/D6)*
-- [ ] **4.3** Write `three/picking.ts` — raycast the merged mesh → `faceIndex` → binary-search `finRanges` → fin index. *(TECH_SPEC §8.3)*
-- [ ] **4.4** Implement WebGL detection on startup: if absent, hide the 3D panel and show a clear non-blocking message; issue all Worker requests with `needMesh:false`; keep 2D inspector and export fully working. *(TECH_SPEC §8.5, NFR-COMPAT.1, SRS OI-5)*
-- [ ] **4.5** Write `Inspector2D.svelte` — draws the `FittedPath` for the selected fin using the same `ComputeResult.paths` (never recomputed); back edge as datum, wave front edge with gradient fill, measurement ticks, depth callout, fin header. *(FR-VIZ.3, V-6, TECH_SPEC §8.4, DESIGN §5.8)*
+- [x] **4.1** Write `three/scene.ts` — perspective camera, neutral lighting (warm key + cool fill for the `wave.jpg` look), `OrbitControls` with touch enabled, canvas resize handler. Frame the default landing design on first mesh. *(FR-VIZ.1, TECH_SPEC §8.2)*
+- [x] **4.2** Write `three/fins.ts` — wrap the incoming merged `BufferGeometry` (one draw call); a second overlay mesh (slice of the selected fin's sub-buffer) with a highlight material. *(TECH_SPEC §8.3, TS-D5/D6)*
+- [x] **4.3** Write `three/picking.ts` — raycast the merged mesh → `faceIndex` → binary-search `finRanges` → fin index. *(TECH_SPEC §8.3)*
+- [x] **4.4** Implement WebGL detection on startup: if absent, hide the 3D panel and show a clear non-blocking message; issue all Worker requests with `needMesh:false`; keep 2D inspector and export fully working. *(TECH_SPEC §8.5, NFR-COMPAT.1, SRS OI-5)*
+- [x] **4.5** Write `Inspector2D.svelte` — draws the `FittedPath` for the selected fin using the same `ComputeResult.paths` (never recomputed); back edge as datum, wave front edge with gradient fill, measurement ticks, depth callout, fin header. *(FR-VIZ.3, V-6, TECH_SPEC §8.4, DESIGN §5.8)*
 
 ---
 

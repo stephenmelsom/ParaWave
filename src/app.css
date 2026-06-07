@@ -59,9 +59,25 @@
 }
 
 :root {
+  --bg: #15110b;
+  --bg-2: #1c1710;
+  --panel: #211b13;
+  --panel-2: #171f22;
+  --edge: rgba(126, 155, 176, 0.28);
+  --ink: #f2e9d8;
+  --ink-dim: #b9ad98;
+  --gold: #e2a44f;
+  --gold-bright: #f6c97d;
+  --gold-glow: rgba(226, 164, 79, 0.22);
+  --wave-shadow: #6f421c;
+  --wave-mid: #d59649;
+  --wave-highlight: #f6c97d;
+  --cool: #7e9bb0;
+  --grid: rgba(126, 155, 176, 0.09);
+  --grid-strong: rgba(126, 155, 176, 0.18);
   font-family: 'IBM Plex Mono', monospace;
-  color: #f2e9d8;
-  background: #15110b;
+  color: var(--ink);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
