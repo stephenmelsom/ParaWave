@@ -115,10 +115,10 @@ dependency-free TypeScript — no DOM, no Three.js, no Svelte. Fully testable he
 Goal: geometry runs off the main thread; the bridge enforces single-in-flight + latest-wins and
 falls back to synchronous on CSP failure.
 
-- [ ] **3.1** Write `worker/geometry.worker.ts` — thin host: receive `ComputeRequest`, run `field → adaptive fit → (mesh when needMesh)`, post `ComputeResult` with transferable `mesh` buffers. No geometry logic of its own. *(TECH_SPEC §7.1–7.2)*
-- [ ] **3.2** Write `worker/bridge.ts` — main-side: single in-flight + pending-stash latest-wins pattern (TECH_SPEC §7.3 pseudocode, TS-D9). Coalesces to ≤1 request per animation frame. *(FR-VIZ.2)*
-- [ ] **3.3** Add the synchronous fallback in `bridge.ts`: if `new Worker(...)` throws or the Worker errors, switch transparently to calling `core/` directly on the main thread. *(TECH_SPEC §7.4, TS-D11, NFR-COMPAT.1)*
-- [ ] **3.4** Wire Worker import via Vite's `new Worker(new URL('./geometry.worker.ts', import.meta.url), { type: 'module' })` pattern so the build bundles the worker correctly.
+- [x] **3.1** Write `worker/geometry.worker.ts` — thin host: receive `ComputeRequest`, run `field → adaptive fit → (mesh when needMesh)`, post `ComputeResult` with transferable `mesh` buffers. No geometry logic of its own. *(TECH_SPEC §7.1–7.2)*
+- [x] **3.2** Write `worker/bridge.ts` — main-side: single in-flight + pending-stash latest-wins pattern (TECH_SPEC §7.3 pseudocode, TS-D9). Coalesces to ≤1 request per animation frame. *(FR-VIZ.2)*
+- [x] **3.3** Add the synchronous fallback in `bridge.ts`: if `new Worker(...)` throws or the Worker errors, switch transparently to calling `core/` directly on the main thread. *(TECH_SPEC §7.4, TS-D11, NFR-COMPAT.1)*
+- [x] **3.4** Wire Worker import via Vite's `new Worker(new URL('./geometry.worker.ts', import.meta.url), { type: 'module' })` pattern so the build bundles the worker correctly.
 
 ---
 
