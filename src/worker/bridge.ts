@@ -13,6 +13,11 @@ export interface GeometryBridgeRequestOptions {
   needMesh?: boolean;
 }
 
+export interface ExportGeometryOptions {
+  createWorker?: () => WorkerLike;
+  generation?: number;
+}
+
 export interface GeometryBridgeOptions {
   onResult: (result: ComputeResult) => void;
   onError?: (error: unknown, request: ComputeRequest) => void;
@@ -259,4 +264,75 @@ export class GeometryBridge {
 
 export function createGeometryBridge(options: GeometryBridgeOptions): GeometryBridge {
   return new GeometryBridge(options);
+}
+
+export function computeExportGeometry(
+  design: Design,
+  options: ExportGeometryOptions = {},
+): Promise<ComputeResult> {
+  const request: ComputeRequest = {
+    design: cloneDesign(design),
+    needMesh: false,
+    generation: options.generation ?? 1,
+  };
+  const createWorker = options.createWorker ?? defaultCreateWorker;
+
+  return new Promise((resolve, reject) => {
+    let worker: WorkerLike | null = null;
+    let settled = false;
+
+    const terminate = (): void => {
+      worker?.terminate();
+      worker = null;
+    };
+
+    const resolveOnce = (result: ComputeResult): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      terminate();
+      resolve(result);
+    };
+
+    const rejectOnce = (error: unknown): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      terminate();
+      reject(error);
+    };
+
+    const runSynchronously = (): void => {
+      terminate();
+
+      try {
+        resolveOnce(computeGeometry(request));
+      } catch (error) {
+        rejectOnce(error);
+      }
+    };
+
+    try {
+      worker = createWorker();
+      worker.onmessage = (event) => {
+        if (event.data.generation === request.generation) {
+          resolveOnce(event.data);
+        }
+      };
+      worker.onerror = (event) => {
+        event.preventDefault();
+        runSynchronously();
+      };
+      worker.onmessageerror = () => {
+        runSynchronously();
+      };
+      worker.postMessage(request);
+    } catch {
+      runSynchronously();
+    }
+  });
 }

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ComputeRequest, ComputeResult, Design } from '../core/types';
-import { createGeometryBridge, type WorkerLike } from './bridge';
+import {
+  computeExportGeometry,
+  createGeometryBridge,
+  type WorkerLike,
+} from './bridge';
 import { computeGeometry, resultTransferList } from './compute';
 
 const baseDesign: Design = {
@@ -227,5 +231,37 @@ describe('geometry worker bridge', () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.generation).toBe(1);
     expect(results[0]?.paths.length).toBeGreaterThan(0);
+  });
+
+  it('runs export geometry immediately at full fidelity without a mesh', async () => {
+    const worker = new FakeWorker();
+    const resultPromise = computeExportGeometry(baseDesign, {
+      createWorker: () => worker,
+      generation: 12,
+    });
+
+    expect(worker.messages).toHaveLength(1);
+    expect(worker.messages[0]).toMatchObject({
+      generation: 12,
+      needMesh: false,
+    });
+
+    worker.completeLast();
+
+    const result = await resultPromise;
+    expect(result.generation).toBe(12);
+    expect(result.mesh).toBeUndefined();
+    expect(worker.terminated).toBe(true);
+  });
+
+  it('falls back to synchronous geometry for a blocked export worker', async () => {
+    const result = await computeExportGeometry(baseDesign, {
+      createWorker: () => {
+        throw new Error('CSP blocked export worker');
+      },
+    });
+
+    expect(result.paths.length).toBeGreaterThan(0);
+    expect(result.mesh).toBeUndefined();
   });
 });

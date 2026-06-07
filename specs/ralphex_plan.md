@@ -158,9 +158,9 @@ export enable/disable reflect the current state.
 
 Goal: clicking Export downloads a correctly named, correctly scaled zip of per-slat SVGs + manifest.
 
-- [ ] **6.1** Write `export/manifest.ts` — assembles `parawave-design.json` with every parameter, chosen display unit, computed N, full wave/source config, app version, and ISO export date. *(FR-EXP.8, SRS §1.7-G)*
-- [ ] **6.2** Write `export/zip.ts` — install `jszip`; bundle all slat SVGs (filenames zero-padded to `max(3, digits(N))`, left→right order) plus the manifest into a single `.zip` download. *(FR-EXP.3/.4, DESIGN §5.9)*
-- [ ] **6.3** Wire the Export flow: issue a `needMesh:false` `ComputeRequest` (or reuse latest paths); feed `FittedPath[]` to `core/svg.ts` at full fidelity; pass to `export/zip.ts`. Export must always recompute regardless of any preview throttling. *(FR-VIZ.4, FR-EXP.1–.9)*
+- [x] **6.1** Write `export/manifest.ts` — assembles `parawave-design.json` with every parameter, chosen display unit, computed N, full wave/source config, app version, and ISO export date. *(FR-EXP.8, SRS §1.7-G)*
+- [x] **6.2** Write `export/zip.ts` — install `jszip`; bundle all slat SVGs (filenames zero-padded to `max(3, digits(N))`, left→right order) plus the manifest into a single `.zip` download. *(FR-EXP.3/.4, DESIGN §5.9)*
+- [x] **6.3** Wire the Export flow: issue a `needMesh:false` `ComputeRequest` (or reuse latest paths); feed `FittedPath[]` to `core/svg.ts` at full fidelity; pass to `export/zip.ts`. Export must always recompute regardless of any preview throttling. *(FR-VIZ.4, FR-EXP.1–.9)*
 
 ---
 

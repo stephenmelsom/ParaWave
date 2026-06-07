@@ -1,14 +1,24 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
+  import { slatSvgs } from '../core/svg';
   import type { ComputeResult } from '../core/types';
+  import {
+    createDesignManifest,
+    createExportZip,
+    downloadExportZip,
+  } from '../export';
   import { createDesignStore } from '../state/design.svelte.ts';
   import {
     createWaveScene,
     detectWebGLSupport,
     type WaveSceneController,
   } from '../three';
-  import { createGeometryBridge, type GeometryBridge } from '../worker/bridge';
+  import {
+    computeExportGeometry,
+    createGeometryBridge,
+    type GeometryBridge,
+  } from '../worker/bridge';
   import ExportButton from './ExportButton.svelte';
   import Inspector2D from './Inspector2D.svelte';
   import ParamPanel from './ParamPanel.svelte';
@@ -79,6 +89,32 @@
 
     if (webglAvailable) {
       sceneController?.setMesh(result.mesh);
+    }
+  }
+
+  async function exportDesign(): Promise<void> {
+    if (exportWorking || !store.exportEnabled) {
+      return;
+    }
+
+    exportWorking = true;
+    computeError = '';
+
+    try {
+      const design = store.snapshot();
+      const result = await computeExportGeometry(design);
+      const manifest = createDesignManifest(design, result.paths.length);
+      const archive = await createExportZip({
+        manifest,
+        slatSvgs: slatSvgs(result.paths, design),
+      });
+
+      downloadExportZip(archive);
+    } catch (error) {
+      computeError =
+        error instanceof Error ? error.message : 'Export generation failed.';
+    } finally {
+      exportWorking = false;
     }
   }
 
@@ -153,9 +189,7 @@
       enabled={store.exportEnabled}
       finCount={finCount}
       working={exportWorking}
-      onExport={() => {
-        exportWorking = false;
-      }}
+      onExport={exportDesign}
     />
   </header>
 
