@@ -61,20 +61,30 @@
 :root {
   --bg: #15110b;
   --bg-2: #1c1710;
-  --panel: #211b13;
-  --panel-2: #171f22;
-  --edge: rgba(126, 155, 176, 0.28);
+  --panel: #1e1812;
+  --panel-2: #241d15;
+  --edge: rgba(240, 220, 180, 0.08);
+  --edge-strong: rgba(240, 220, 180, 0.16);
   --ink: #f2e9d8;
-  --ink-dim: #b9ad98;
+  --ink-dim: #a99a82;
+  --ink-faint: #6f6452;
+  --gold-deep: #a4702f;
   --gold: #e2a44f;
   --gold-bright: #f6c97d;
   --gold-glow: rgba(226, 164, 79, 0.22);
-  --wave-shadow: #6f421c;
-  --wave-mid: #d59649;
-  --wave-highlight: #f6c97d;
+  --wave-shadow: #8a5a2b;
+  --wave-mid: #c8843a;
+  --wave-highlight: #f2c178;
   --cool: #7e9bb0;
-  --grid: rgba(126, 155, 176, 0.09);
-  --grid-strong: rgba(126, 155, 176, 0.18);
+  --cool-dim: #4a5e6b;
+  --grid: rgba(126, 155, 176, 0.06);
+  --grid-strong: rgba(126, 155, 176, 0.12);
+  --danger: #e07a5f;
+  --danger-bg: rgba(224, 122, 95, 0.1);
+  --warn: #e6b34a;
+  --warn-bg: rgba(230, 179, 74, 0.1);
+  --ok: #9bbd7a;
+  --grain-opacity: 0.05;
   font-family: 'IBM Plex Mono', monospace;
   color: var(--ink);
   background: var(--bg);
@@ -88,6 +98,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 button,

@@ -1,1 +1,1 @@
-export {};
+export * from './design.svelte.ts';

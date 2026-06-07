@@ -140,17 +140,17 @@ identical fitted path.
 Goal: a wired-up UI where every control updates the live design and all readouts, validation, and
 export enable/disable reflect the current state.
 
-- [ ] **5.1** Write `state/design.svelte.ts` — Svelte 5 runes store holding the `Design` (canonical mm). Two tiers of derived state: cheap (N, margins, full validation, `exportEnabled`) computed synchronously from `core/`; expensive (observed depth range, segment count) from the latest `ComputeResult`. *(TECH_SPEC §5.2, TS-D7)*
-- [ ] **5.2** Write `App.svelte` — three-column layout (rail · viewport · inspector+readouts) + header bar as ASCII diagram in DESIGN §4.1. Import and mount the Three.js scene, wire the bridge, handle `ComputeResult`. *(DESIGN §4.2, FR-UI.4)*
-- [ ] **5.3** Write `UnitToggle.svelte` — two-segment `mm | inch` switch in the header; toggling reformats all displayed values in place without altering stored mm values. *(FR-IN.2, DESIGN §5.4)*
-- [ ] **5.4** Write `ParamPanel.svelte` — collapsible groups (Dimensions, Wave Function, Fit Tolerance); each global param as a labeled row (slider + editable numeric + unit) per DESIGN §5.1 specs. No silent clamping on input. *(FR-IN.1/.5)*
-- [ ] **5.5** Add wave-family tabs (Diagonal · Radial · Interference) inside `ParamPanel`; switching tabs swaps the params region; the panel shows **exactly** the active family's params and no others. *(FR-IN.3, FR-WAVE.1–.3, DESIGN §5.2)*
-- [ ] **5.6** Add the Interference Sources editor inside `ParamPanel`: list of `K ∈ [1,8]` source rows, each collapsible with a type-select, weight slider, family params, and remove button; add control (disabled at K=8). Weight sign shown explicitly. *(FR-WAVE.3, FR-VAL.3/.11, DESIGN §5.3)*
-- [ ] **5.7** Write `Readouts.svelte` — spec-sheet strip: fin count N (hero size), spanned width, margin, stock thickness, declared depth range, actual depth used (with under-use bar), total footprint. Tabular figures; updates live. *(FR-IN.4, DESIGN §5.5)*
-- [ ] **5.8** Write `ValidationList.svelte` — two-tier display: hard-block rows (✕ + danger bg + exact SRS message + anchored field flag), soft-warning rows (⚠ + warn bg); "Ready to export." in `--ok` when all clear. *(FR-VAL, DESIGN §5.6)*
-- [ ] **5.9** Write `ExportButton.svelte` — gold primary action; disabled (no glow, `not-allowed`) whenever any hard block is active; shows an in-button "…packing N slats" affordance during zip build. *(FR-UI.3, DESIGN §5.9)*
-- [ ] **5.10** Wire fin-index stepper in the viewport overlay (`[ 014 ▸ ] / 037`); clicking a fin in 3D updates the stepper and vice versa; selection shared with the 2D inspector. *(FR-VIZ.6, DESIGN §5.7)*
-- [ ] **5.11** Implement the landing default design (interference, 2 sources: src1 diagonal `θ=30°, λ=300 mm`; src2 radial centered `λ=200 mm`; equal weights) rendered on first paint without user input. *(FR-UI.1, SRS §1.7-H)*
+- [x] **5.1** Write `state/design.svelte.ts` — Svelte 5 runes store holding the `Design` (canonical mm). Two tiers of derived state: cheap (N, margins, full validation, `exportEnabled`) computed synchronously from `core/`; expensive (observed depth range, segment count) from the latest `ComputeResult`. *(TECH_SPEC §5.2, TS-D7)*
+- [x] **5.2** Write `App.svelte` — three-column layout (rail · viewport · inspector+readouts) + header bar as ASCII diagram in DESIGN §4.1. Import and mount the Three.js scene, wire the bridge, handle `ComputeResult`. *(DESIGN §4.2, FR-UI.4)*
+- [x] **5.3** Write `UnitToggle.svelte` — two-segment `mm | inch` switch in the header; toggling reformats all displayed values in place without altering stored mm values. *(FR-IN.2, DESIGN §5.4)*
+- [x] **5.4** Write `ParamPanel.svelte` — collapsible groups (Dimensions, Wave Function, Fit Tolerance); each global param as a labeled row (slider + editable numeric + unit) per DESIGN §5.1 specs. No silent clamping on input. *(FR-IN.1/.5)*
+- [x] **5.5** Add wave-family tabs (Diagonal · Radial · Interference) inside `ParamPanel`; switching tabs swaps the params region; the panel shows **exactly** the active family's params and no others. *(FR-IN.3, FR-WAVE.1–.3, DESIGN §5.2)*
+- [x] **5.6** Add the Interference Sources editor inside `ParamPanel`: list of `K ∈ [1,8]` source rows, each collapsible with a type-select, weight slider, family params, and remove button; add control (disabled at K=8). Weight sign shown explicitly. *(FR-WAVE.3, FR-VAL.3/.11, DESIGN §5.3)*
+- [x] **5.7** Write `Readouts.svelte` — spec-sheet strip: fin count N (hero size), spanned width, margin, stock thickness, declared depth range, actual depth used (with under-use bar), total footprint. Tabular figures; updates live. *(FR-IN.4, DESIGN §5.5)*
+- [x] **5.8** Write `ValidationList.svelte` — two-tier display: hard-block rows (✕ + danger bg + exact SRS message + anchored field flag), soft-warning rows (⚠ + warn bg); "Ready to export." in `--ok` when all clear. *(FR-VAL, DESIGN §5.6)*
+- [x] **5.9** Write `ExportButton.svelte` — gold primary action; disabled (no glow, `not-allowed`) whenever any hard block is active; shows an in-button "…packing N slats" affordance during zip build. *(FR-UI.3, DESIGN §5.9)*
+- [x] **5.10** Wire fin-index stepper in the viewport overlay (`[ 014 ▸ ] / 037`); clicking a fin in 3D updates the stepper and vice versa; selection shared with the 2D inspector. *(FR-VIZ.6, DESIGN §5.7)*
+- [x] **5.11** Implement the landing default design (interference, 2 sources: src1 diagonal `θ=30°, λ=300 mm`; src2 radial centered `λ=200 mm`; equal weights) rendered on first paint without user input. *(FR-UI.1, SRS §1.7-H)*
 
 ---
 

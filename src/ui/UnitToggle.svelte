@@ -1,0 +1,73 @@
+<script lang="ts">
+  import type { Unit } from '../core/types';
+
+  interface Props {
+    value: Unit;
+    onChange: (unit: Unit) => void;
+  }
+
+  let { value, onChange }: Props = $props();
+
+  const units: { value: Unit; label: string }[] = [
+    { value: 'mm', label: 'mm' },
+    { value: 'inch', label: 'inch' },
+  ];
+</script>
+
+<div class="unit-toggle" role="group" aria-label="Display units">
+  {#each units as unit (unit.value)}
+    <button
+      type="button"
+      class:active={value === unit.value}
+      aria-pressed={value === unit.value}
+      onclick={() => onChange(unit.value)}
+    >
+      {unit.label}
+    </button>
+  {/each}
+</div>
+
+<style>
+  .unit-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(64px, 1fr));
+    border: 1px solid var(--edge);
+    background: var(--panel-2);
+  }
+
+  button {
+    position: relative;
+    min-height: 34px;
+    border: 0;
+    color: var(--ink-dim);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  button + button {
+    border-left: 1px solid var(--edge);
+  }
+
+  button::after {
+    position: absolute;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
+    height: 2px;
+    background: transparent;
+    content: '';
+  }
+
+  button.active {
+    color: var(--ink);
+  }
+
+  button.active::after {
+    background: var(--gold);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--gold-bright);
+    outline-offset: 2px;
+  }
+</style>
