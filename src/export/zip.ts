@@ -60,5 +60,5 @@ export function downloadExportZip(
   anchor.click();
   anchor.remove();
 
-  globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
+  globalThis.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }

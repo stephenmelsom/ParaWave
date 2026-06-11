@@ -464,6 +464,14 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
     );
   });
 
+  it('FR-VAL.4 (hard): gap < 0', () => {
+    const r = validateDesign({ ...valid, gap: -1 });
+    expect(r.issues).toContainEqual(
+      expect.objectContaining({ code: 'FR-VAL.4', tier: 'hard', field: 'gap' }),
+    );
+    expect(r.exportEnabled).toBe(false);
+  });
+
   it('FR-VAL.5 (hard): pMin < 0 → "Minimum protrusion cannot be negative."', () => {
     const r = validateDesign({ ...valid, pMin: -1 });
     expect(r.issues).toContainEqual(

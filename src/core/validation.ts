@@ -118,13 +118,7 @@ export function validateDesign(
   const finCount = computeFinCount(design);
 
   if (finCount < 1 && design.W > 0 && design.slatWidth > 0) {
-    const hasWidthIssue = issues.some((issue) => issue.code === 'FR-VAL.2');
-
-    if (!hasWidthIssue) {
-      issues.push(
-        hard('FR-VAL.2', 'W', 'Width is too small to fit a single slat plus gap.'),
-      );
-    }
+    issues.push(hard('FR-VAL.2', 'W', 'Width is too small to fit a single slat plus gap.'));
   }
 
   if (finCount > FIN_WARN) {
