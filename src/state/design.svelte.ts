@@ -1,4 +1,3 @@
-import { cloneDesign } from '../core/clone';
 import { computeReadouts } from '../core/readouts';
 import type {
   ComputeResult,
@@ -123,6 +122,26 @@ export class DesignStore {
   canComputeGeometry = $derived(this.cheapValidation.hardBlocks.length === 0);
   actualDepthRange = $derived(this.computeResult?.observedDepth ?? null);
   totalSegments = $derived(this.computeResult?.totalSegments ?? 0);
+  // cheapValidation tracks lambda/weight/kind but not theta/phi/cx/cy/decay.
+  // This derived subscribes to those fields so callers can depend on all wave params.
+  waveRevision = $derived(this._waveParamKey());
+
+  private _waveParamKey(): string {
+    const w = this.design.wave;
+    if (w.kind === 'diagonal') {
+      return `d|${w.theta}|${w.phi}`;
+    }
+    if (w.kind === 'radial') {
+      return `r|${w.cx}|${w.cy}|${w.phi}|${w.decay}`;
+    }
+    return `i|${w.sources
+      .map((s) =>
+        s.type === 'diagonal'
+          ? `d|${s.theta}|${s.phi}`
+          : `r|${s.cx}|${s.cy}|${s.phi}|${s.decay}`,
+      )
+      .join(',')}`;
+  }
 
   setDisplayUnit(unit: Unit): void {
     this.design.displayUnit = unit;
@@ -250,7 +269,7 @@ export class DesignStore {
   }
 
   snapshot(): Design {
-    return cloneDesign($state.snapshot(this.design));
+    return $state.snapshot(this.design) as Design;
   }
 
   reset(): void {

@@ -15,7 +15,7 @@ npm run format     # Prettier
 
 `src/core/` is dependency-free TypeScript — no DOM, no Three.js, no Svelte. This is the determinism boundary. Tests under `core/` run headless in Node without a browser.
 
-`src/state/` holds Svelte 5 rune-based store (`design.svelte.ts`). Cheap derived state (fin count, validation, readouts) is computed synchronously from `core/` in `$derived`. Expensive state (observed depth range, segment count) comes from the latest `ComputeResult` posted by the bridge. Never add synchronous geometry computation to the cheap tier.
+`src/state/` holds Svelte 5 rune-based store (`design.svelte.ts`). `DesignStore` is a Svelte 5 class using `$state`/`$derived` fields. Cheap derived state (fin count, validation, readouts) is computed synchronously from `core/` in `$derived`. Expensive state (observed depth range, segment count) comes from the latest `ComputeResult` posted by the bridge. Never add synchronous geometry computation to the cheap tier. Use `store.snapshot()` (wraps `$state.snapshot`) to get a plain `Design` for worker dispatch or export — never pass the reactive proxy directly. Note: `cheapValidation` tracks `lambda`/`kind`/dimensions but not `theta`/`phi`/`cx`/`cy`/`decay`; the `waveRevision` derived exists specifically to let effects subscribe to those fields.
 
 `src/worker/` owns the geometry worker bridge. `src/three/` owns Three.js scene and picking. `src/ui/` owns Svelte components. `src/export/` owns ZIP and manifest generation.
 
@@ -23,7 +23,7 @@ npm run format     # Prettier
 
 `GeometryBridge` in `src/worker/bridge.ts` implements single-in-flight with latest-wins coalescing (pending stash) and per-animation-frame batching. If `new Worker()` throws or the worker errors, it falls back transparently to synchronous execution via `computeGeometry()`. `usingSynchronousFallback` is the observable flag.
 
-`computeExportGeometry()` is a separate one-shot promise path used at export time — it bypasses the live bridge and always runs at full fidelity.
+`computeExportGeometry()` is a separate one-shot promise path used at export time — it bypasses the live bridge, spawns a dedicated short-lived worker (terminated on resolution), and always runs at full fidelity with `needMesh: false`. If `new Worker()` fails it falls back to synchronous execution. `resultTransferList`/`meshTransferList` in `src/worker/compute.ts` declare typed-array buffers as transferables — keep this list in sync with `MeshBuffers` fields or silent copy-instead-of-transfer performance regressions result.
 
 ## Geometry and curve fit
 

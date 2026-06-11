@@ -37,17 +37,13 @@ function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
 }
 
-function sourceWavelength(source: Source): number {
-  return source.lambda;
-}
-
 export function minimumWavelength(config: WaveConfig): number {
   switch (config.kind) {
     case 'diagonal':
     case 'radial':
       return config.lambda;
     case 'interference': {
-      const wavelengths = config.sources.map(sourceWavelength).filter(isPositiveFinite);
+      const wavelengths = config.sources.map((s) => s.lambda).filter(isPositiveFinite);
 
       if (wavelengths.length === 0) {
         return Number.NaN;

@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { Design, FittedPath } from '../core/types';
+  import { slatPathData } from '../core/svg';
   import {
     fittedPathDepthRange,
     formatMeasurement,
-    inspectorPathData,
     makeTicks,
   } from './inspector';
 
@@ -32,7 +32,7 @@
   $: safeDepth = Math.max(1, design.D);
   $: scaleX = plotWidth / safeDepth;
   $: scaleY = plotHeight / safeHeight;
-  $: pathData = path ? inspectorPathData(path) : '';
+  $: pathData = path ? slatPathData(path) : '';
   $: depthRange = path ? fittedPathDepthRange(path) : { min: 0, max: 0 };
   $: depthTicks = makeTicks(safeDepth, 4);
   $: heightTicks = makeTicks(safeHeight, 4);

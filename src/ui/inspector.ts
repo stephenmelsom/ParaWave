@@ -1,5 +1,4 @@
 import { evaluateBezier } from '../core/fit/hermite';
-import { slatPathData } from '../core/svg';
 import type { FittedPath } from '../core/types';
 import { formatForDisplay } from '../core/units';
 
@@ -12,10 +11,6 @@ export interface MeasurementFormatOptions {
   decimals?: number;
   includeUnit?: boolean;
   trimTrailingZeros?: boolean;
-}
-
-export function inspectorPathData(path: FittedPath): string {
-  return slatPathData(path);
 }
 
 export function fittedPathDepthRange(path: FittedPath, samplesPerSegment = 16): DepthRange {

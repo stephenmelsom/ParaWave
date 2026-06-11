@@ -7,6 +7,8 @@ export const SEGMENT_WARN = 50_000;
 
 export type ValidationTier = 'hard' | 'soft';
 
+// FR-VAL.9 (depth clipping) is intentionally absent — the wave evaluation is
+// bounded to [pMin, D] by construction, so depth overflow is impossible.
 export type ValidationCode =
   | 'FR-VAL.1'
   | 'FR-VAL.2'
@@ -81,14 +83,6 @@ export function validateDesign(
     issues.push(hard('FR-VAL.1', 'D', 'Max depth must be greater than minimum protrusion.'));
   }
 
-  if (
-    design.W > 0 &&
-    design.slatWidth > 0 &&
-    design.slatWidth + design.gap > design.W
-  ) {
-    issues.push(hard('FR-VAL.2', 'W', 'Width is too small to fit a single slat plus gap.'));
-  }
-
   issues.push(...wavelengthIssuesForWave(design.wave));
 
   if (design.H <= 0) {
@@ -101,6 +95,10 @@ export function validateDesign(
 
   if (design.slatWidth <= 0) {
     issues.push(hard('FR-VAL.4', 'slatWidth', 'Value must be greater than zero.'));
+  }
+
+  if (design.gap < 0) {
+    issues.push(hard('FR-VAL.4', 'gap', 'Gap must be zero or greater.'));
   }
 
   if (design.pMin < 0) {

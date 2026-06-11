@@ -65,11 +65,3 @@ export function protrusionAt(
   return protrusionFromWaveValue(design, field.f(x, y));
 }
 
-export function protrusionSlopeDy(
-  design: Pick<Design, 'D' | 'pMin'>,
-  field: WaveField,
-  x: number,
-  y: number,
-): number {
-  return ((design.D - design.pMin) / 2) * field.dfdy(x, y);
-}

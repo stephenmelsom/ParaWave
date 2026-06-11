@@ -136,8 +136,12 @@
 
   $effect(() => {
     const bridgeInstance = bridge;
+    const canCompute = store.canComputeGeometry;
+    // Read waveRevision to subscribe to theta/phi/cx/cy/decay changes,
+    // which cheapValidation (and therefore canComputeGeometry) does not track.
+    void store.waveRevision;
 
-    if (!bridgeInstance || !store.canComputeGeometry) {
+    if (!bridgeInstance || !canCompute) {
       return;
     }
 
