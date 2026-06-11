@@ -186,9 +186,12 @@
   }
 
   function parseParam(raw: string, kind: ParamKind): number {
-    return kind === 'length'
-      ? parseFromDisplay(raw, store.design.displayUnit)
-      : Number(raw.trim());
+    if (kind === 'length') {
+      return parseFromDisplay(raw, store.design.displayUnit);
+    }
+
+    const trimmed = raw.trim();
+    return trimmed.length === 0 ? Number.NaN : Number(trimmed);
   }
 
   function inputValue(event: Event): string {
