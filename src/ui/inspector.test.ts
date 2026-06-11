@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fitPath, slatPathData } from '../core';
+import { fitPath, slatPathData, slatSvg } from '../core';
 import type { Design } from '../core/types';
 import { fittedPathDepthRange, makeTicks } from './inspector';
 
@@ -25,7 +25,12 @@ describe('2D inspector helpers', () => {
   it('uses the exact SVG path data emitted for export', () => {
     const path = fitPath(design, 90, 3);
 
-    expect(slatPathData(path)).toMatch(/^M/);
+    // Inspector2D renders slatPathData(path); export embeds the same string in
+    // the SVG. Assert they are identical rather than just well-formed.
+    const inspectorPathData = slatPathData(path);
+
+    expect(inspectorPathData).toMatch(/^M/);
+    expect(slatSvg(path, design)).toContain(`d="${inspectorPathData}"`);
   });
 
   it('derives measurement ticks and depth range from the fitted path', () => {

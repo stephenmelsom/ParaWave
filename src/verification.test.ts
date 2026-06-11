@@ -19,6 +19,7 @@ import {
   protrusionAt,
   protrusionFromWaveValue,
   slatPathData,
+  slatSvg,
   toDisplayValue,
   validateDesign,
 } from './core';
@@ -545,7 +546,16 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
 describe('8.10 – inspector path equals SVG export path', () => {
   it('the same FittedPath produces identical path data for inspector and export', () => {
     const path = fitPath(baseDesign, 90, 3);
-    expect(slatPathData(path)).toMatch(/^M/);
+
+    // The 2D inspector renders slatPathData(path) directly (Inspector2D.svelte),
+    // while export embeds the same data inside the SVG via slatSvg. V-6 requires
+    // these to be geometrically identical — assert the export SVG carries exactly
+    // the inspector's path data, so any future divergence is caught.
+    const inspectorPathData = slatPathData(path);
+    const exportSvg = slatSvg(path, baseDesign);
+
+    expect(inspectorPathData).toMatch(/^M/);
+    expect(exportSvg).toContain(`d="${inspectorPathData}"`);
   });
 });
 
