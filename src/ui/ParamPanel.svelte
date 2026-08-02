@@ -5,7 +5,7 @@
     toDisplayValue,
   } from '../core/units';
   import type { ValidationIssue } from '../core/validation';
-  import type { Source, WaveConfig } from '../core/types';
+  import type { LabelStyle, Source, WaveConfig } from '../core/types';
   import {
     MAX_INTERFERENCE_SOURCES,
     type DesignNumberField,
@@ -14,6 +14,7 @@
     type DiagonalSourceParam,
     type RadialParam,
     type RadialSourceParam,
+    type SheetNumberField,
   } from '../state/design.svelte.ts';
 
   interface Props {
@@ -37,6 +38,15 @@
     kind: ParamKind;
     decimals: number;
     step?: number;
+  }
+
+  interface SheetControl {
+    field: SheetNumberField;
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    decimals: number;
   }
 
   let { store }: Props = $props();
@@ -139,12 +149,33 @@
     },
   ];
 
+  const sheetControls: SheetControl[] = [
+    { field: 'width', label: 'sheet width', min: 100, max: 3000, step: 1, decimals: 2 },
+    { field: 'height', label: 'sheet height', min: 100, max: 3000, step: 1, decimals: 2 },
+    { field: 'margin', label: 'edge margin', min: 0, max: 50, step: 0.5, decimals: 2 },
+    {
+      field: 'clearance',
+      label: 'part clearance',
+      min: 0,
+      max: 25,
+      step: 0.5,
+      decimals: 2,
+    },
+  ];
+
+  const labelStyles: { value: LabelStyle; label: string }[] = [
+    { value: 'text', label: 'Text' },
+    { value: 'stroke', label: 'Engravable outlines' },
+    { value: 'none', label: 'None' },
+  ];
+
   const families: { value: WaveConfig['kind']; label: string }[] = [
     { value: 'diagonal', label: 'Diagonal' },
     { value: 'radial', label: 'Radial' },
     { value: 'interference', label: 'Interference' },
   ];
   const panelHelpId = 'param-panel-help';
+  const sheetHelpId = 'param-panel-sheet-help';
 
   function unitLabel(kind: ParamKind): string {
     if (kind === 'angle') {
@@ -230,6 +261,28 @@
 
   function sliderValue(field: DesignNumberField): number {
     return toDisplayValue(store.design[field], store.design.displayUnit);
+  }
+
+  function sheetSliderValue(field: SheetNumberField): number {
+    return toDisplayValue(store.sheet[field], store.design.displayUnit);
+  }
+
+  function updateSheetFromInput(field: SheetNumberField, event: Event): void {
+    applyNumber(inputValue(event), 'length', (value) => {
+      store.setSheetNumber(field, value);
+    });
+  }
+
+  function updateSheetFromSlider(field: SheetNumberField, event: Event): void {
+    const value = parseFromDisplay(inputValue(event), store.design.displayUnit);
+
+    if (Number.isFinite(value)) {
+      store.setSheetNumber(field, value);
+    }
+  }
+
+  function sheetFieldName(field: SheetNumberField): string {
+    return `sheet.${field}`;
   }
 
   function sliderBound(valueMm: number): number {
@@ -703,6 +756,105 @@
       {/each}
     </div>
   </details>
+
+  <details open>
+    <summary aria-describedby={panelHelpId}>Stock Sheet</summary>
+    <div class="group-body">
+      <p id={sheetHelpId} class="group-note">
+        Nests slats onto your CNC work area and exports one ready-to-cut SVG per
+        sheet. Clearance is spacing only — set your outside-contour offset in
+        your CAM tool. The stock outline in each SVG is a reference rectangle,
+        not a cut path.
+      </p>
+
+      <label class="control-row toggle-row">
+        <span class="control-label">nest onto stock</span>
+        <input
+          type="checkbox"
+          checked={store.sheet.enabled}
+          aria-describedby={sheetHelpId}
+          onchange={(event) =>
+            store.setSheetEnabled(
+              (event.currentTarget as HTMLInputElement).checked,
+            )}
+        />
+      </label>
+
+      {#if store.sheet.enabled}
+        {#each sheetControls as control (control.field)}
+          {@const fieldName = sheetFieldName(control.field)}
+          {@const issue = issueForField(fieldName)}
+          {@const sliderMin = sliderBound(control.min)}
+          {@const sliderMax = sliderBound(control.max)}
+          {@const currentValue = sheetSliderValue(control.field)}
+          <label class="control-row" class:invalid={fieldHasIssue(fieldName)}>
+            <span class="control-label">{control.label}</span>
+            <input
+              class="slider"
+              type="range"
+              min={sliderMin}
+              max={sliderMax}
+              step={sliderStep(control.step)}
+              value={currentValue}
+              style={rangeStyle(
+                currentValue,
+                sliderMin,
+                sliderMax,
+                Boolean(issue),
+              )}
+              aria-label={control.label}
+              aria-invalid={issue?.tier === 'hard'}
+              aria-describedby={describedByForField(fieldName)}
+              oninput={(event) => updateSheetFromSlider(control.field, event)}
+            />
+            <span class="numeric">
+              <input
+                type="text"
+                inputmode="decimal"
+                value={formatLength(
+                  store.sheet[control.field],
+                  control.decimals,
+                )}
+                aria-label={`${control.label} value`}
+                aria-invalid={issue?.tier === 'hard'}
+                aria-describedby={describedByForField(fieldName)}
+                onchange={(event) => updateSheetFromInput(control.field, event)}
+              />
+              <span>{unitLabel('length')}</span>
+            </span>
+            {#if issue}
+              <span
+                id={issueIdForField(fieldName)}
+                class:hard={issue.tier === 'hard'}
+                class:soft={issue.tier === 'soft'}
+                class="field-note"
+              >
+                {issue.tier === 'hard' ? '✕' : '⚠'}
+                {issue.message}
+              </span>
+            {/if}
+          </label>
+        {/each}
+
+        <label class="control-row">
+          <span class="control-label">part labels</span>
+          <select
+            aria-label="Part label style"
+            aria-describedby={sheetHelpId}
+            value={store.sheet.labelStyle}
+            onchange={(event) =>
+              store.setSheetLabelStyle(
+                (event.currentTarget as HTMLSelectElement).value as LabelStyle,
+              )}
+          >
+            {#each labelStyles as style (style.value)}
+              <option value={style.value}>{style.label}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+    </div>
+  </details>
 </section>
 
 <style>
@@ -736,9 +888,38 @@
   .control-row {
     position: relative;
     display: grid;
-    grid-template-columns: 96px minmax(86px, 1fr) 96px;
+    /* Shrinkable label/value columns: at the 304px rail width the fixed 96px
+       tracks overflowed, and the rail clips rather than scrolls horizontally. */
+    grid-template-columns: minmax(0, 96px) minmax(64px, 1fr) minmax(0, 96px);
     align-items: center;
     gap: 10px;
+  }
+
+  .param-panel,
+  .group-body,
+  .control-row > * {
+    min-width: 0;
+  }
+
+  .group-note {
+    margin: 0;
+    color: var(--ink-faint);
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  .toggle-row {
+    grid-template-columns: 96px auto;
+    justify-content: start;
+    /* Keeps the tap target comfortable without inflating the checkbox itself. */
+    min-height: 44px;
+  }
+
+  .toggle-row input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--gold);
+    cursor: pointer;
   }
 
   .control-label,
@@ -1028,9 +1209,26 @@
     transition: border-color 140ms ease;
   }
 
+  @media (max-width: 1199px) {
+    /* The rail narrows to 304px here and "weight" would truncate to "wei…".
+       The slider keeps its aria-label, so drop the redundant visible text. */
+    .weight {
+      grid-template-columns: minmax(40px, 1fr) minmax(0, 38px);
+    }
+
+    .weight > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
   .source-row summary {
     display: grid;
-    grid-template-columns: auto 88px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, auto) minmax(0, 88px) minmax(0, 1fr) minmax(0, auto);
     gap: 8px;
     padding: 8px;
     font-family: 'IBM Plex Mono', monospace;
@@ -1047,9 +1245,22 @@
   .weight {
     position: relative;
     display: grid;
-    grid-template-columns: auto minmax(40px, 1fr) 38px;
+    /* The "weight" label must be allowed to shrink, or the row outgrows the
+       narrowed rail and gets clipped. */
+    grid-template-columns: minmax(0, auto) minmax(40px, 1fr) minmax(0, 38px);
     align-items: center;
+    min-width: 0;
     gap: 6px;
+  }
+
+  .weight > * {
+    min-width: 0;
+  }
+
+  .weight > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .weight strong {

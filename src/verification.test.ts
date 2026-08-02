@@ -1,30 +1,40 @@
 /**
  * Task 8: Tests & verification
  * Covers 8.1–8.12 (automated). Items 8.13–8.17 require manual testing.
+ *
+ * Task 9: Stock sheet nesting
+ * Covers 9.1–9.5 (automated). Item V-7 (Carbide Create import) is manual.
  */
 import { describe, expect, it } from 'vitest';
 
 import {
   FIN_WARN,
   SEGMENT_WARN,
+  SHEET_WARN,
+  computeNestMetrics,
   computeSlatLayout,
   createDiagonalField,
   createInterferenceField,
   createRadialField,
   createWaveField,
   evaluateBezier,
+  evaluateBezierAtY,
   fitAllPaths,
   fitPath,
   fromDisplayValue,
+  nestSheets,
+  placedPathData,
   protrusionAt,
   protrusionFromWaveValue,
+  sheetSvgs,
   slatPathData,
   slatSvg,
   toDisplayValue,
   validateDesign,
 } from './core';
-import type { Design, WaveConfig } from './core/types';
-import { slatFilename } from './export';
+import type { NestPlacement } from './core/nest/pack';
+import type { Design, FittedPath, SheetConfig, WaveConfig } from './core/types';
+import { createCutlistCsv, slatFilename } from './export';
 import { createDesignStore } from './state/design.svelte.ts';
 
 // ─── shared fixtures ─────────────────────────────────────────────────────────
@@ -545,6 +555,114 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
     expect(r.exportEnabled).toBe(true);
     expect(r.hardBlocks).toHaveLength(0);
   });
+
+  // ── FR-VAL.12–.16: stock sheet rules ──────────────────────────────────────
+  // All gated on an enabled SheetConfig, so designs validated without one are
+  // unaffected.
+
+  const stock: SheetConfig = {
+    enabled: true,
+    width: 762,
+    height: 762,
+    margin: 10,
+    clearance: 6,
+    labelStyle: 'text',
+  };
+
+  it('sheet rules stay silent unless an enabled sheet config is supplied', () => {
+    expect(validateDesign(valid).issues).toHaveLength(0);
+    // Disabling nesting must not strand the user behind a stock-sheet error.
+    expect(
+      validateDesign(valid, { sheet: { ...stock, enabled: false, width: -1 } }).issues,
+    ).toHaveLength(0);
+  });
+
+  it('FR-VAL.12 (hard): non-positive sheet dimensions → "Value must be greater than zero."', () => {
+    const r = validateDesign(valid, { sheet: { ...stock, width: 0 } });
+    expect(r.exportEnabled).toBe(false);
+    expect(r.issues).toContainEqual({
+      code: 'FR-VAL.12',
+      field: 'sheet.width',
+      tier: 'hard',
+      message: 'Value must be greater than zero.',
+    });
+  });
+
+  it('FR-VAL.12 (hard): negative margin and clearance are rejected', () => {
+    expect(
+      validateDesign(valid, { sheet: { ...stock, margin: -1 } }).issues,
+    ).toContainEqual({
+      code: 'FR-VAL.12',
+      field: 'sheet.margin',
+      tier: 'hard',
+      message: 'Edge margin cannot be negative.',
+    });
+    expect(
+      validateDesign(valid, { sheet: { ...stock, clearance: -1 } }).issues,
+    ).toContainEqual({
+      code: 'FR-VAL.12',
+      field: 'sheet.clearance',
+      tier: 'hard',
+      message: 'Part clearance cannot be negative.',
+    });
+  });
+
+  it('FR-VAL.13 (hard): usable height < H → "Sheet height is too small to fit a full-height slat."', () => {
+    const r = validateDesign(valid, { sheet: { ...stock, height: 200 } });
+    expect(r.exportEnabled).toBe(false);
+    expect(r.issues).toContainEqual({
+      code: 'FR-VAL.13',
+      field: 'sheet.height',
+      tier: 'hard',
+      message: 'Sheet height is too small to fit a full-height slat.',
+    });
+  });
+
+  it('FR-VAL.14 (hard): usable width < pMin → "Sheet width is too small to fit a single slat profile."', () => {
+    const r = validateDesign(valid, { sheet: { ...stock, width: 22 } });
+    expect(r.issues).toContainEqual({
+      code: 'FR-VAL.14',
+      field: 'sheet.width',
+      tier: 'hard',
+      message: 'Sheet width is too small to fit a single slat profile.',
+    });
+  });
+
+  it('FR-VAL.15 (soft): unnestable slats warn but never block export', () => {
+    const r = validateDesign(valid, {
+      sheet: stock,
+      nest: { sheetCount: 2, unplacedCount: 3 },
+    });
+    expect(r.exportEnabled).toBe(true);
+    expect(r.issues).toContainEqual({
+      code: 'FR-VAL.15',
+      field: 'sheet.width',
+      tier: 'soft',
+      message: '3 slats are too wide for this sheet and were left unnested.',
+    });
+  });
+
+  it('FR-VAL.16 (soft): an excessive sheet count warns but never blocks export', () => {
+    const r = validateDesign(valid, {
+      sheet: stock,
+      nest: { sheetCount: SHEET_WARN + 1, unplacedCount: 0 },
+    });
+    expect(r.exportEnabled).toBe(true);
+    expect(r.issues).toContainEqual({
+      code: 'FR-VAL.16',
+      field: 'sheet.width',
+      tier: 'soft',
+      message: `Design needs ${SHEET_WARN + 1} sheets of stock — consider a larger sheet.`,
+    });
+  });
+
+  it('a workable sheet adds no issues at all', () => {
+    const r = validateDesign(valid, {
+      sheet: stock,
+      nest: { sheetCount: 3, unplacedCount: 0 },
+    });
+    expect(r.issues).toHaveLength(0);
+  });
 });
 
 // ─── 8.10  2D inspector path data === exported SVG path data ─────────────────
@@ -630,5 +748,168 @@ describe('8.12 – exportEnabled mirrors hard-block state', () => {
     );
     expect(hasSoftWarning).toBe(true);
     expect(store.exportEnabled).toBe(true);
+  });
+});
+
+// ─── 9.1  Nested parts never overlap and stay inside the sheet ────────────────
+
+describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
+  const design: Design = {
+    H: 600,
+    W: 900,
+    D: 60,
+    pMin: 5,
+    slatWidth: 18,
+    gap: 6,
+    fitTolerance: 0.05,
+    displayUnit: 'mm',
+    wave: {
+      kind: 'interference',
+      sources: [
+        { type: 'diagonal', theta: 28, lambda: 260, phi: 0, weight: 1 },
+        { type: 'radial', cx: 300, cy: 250, lambda: 190, phi: 35, decay: 0.0015, weight: 0.65 },
+      ],
+    },
+  };
+
+  const stock: SheetConfig = {
+    enabled: true,
+    width: 762,
+    height: 762,
+    margin: 10,
+    clearance: 6,
+    labelStyle: 'text',
+  };
+
+  function frontEdgeAt(path: FittedPath, y: number): number {
+    for (const segment of path.segments) {
+      if (y >= segment.p0.y - 1e-9 && y <= segment.p3.y + 1e-9) {
+        return evaluateBezierAtY(segment, y).z;
+      }
+    }
+
+    return path.segments.at(-1)?.p3.z ?? 0;
+  }
+
+  function span(placement: NestPlacement, path: FittedPath, y: number) {
+    const local = y - placement.y;
+
+    if (placement.rotation === 180) {
+      const z = frontEdgeAt(path, design.H - local);
+
+      return { left: placement.x - z, right: placement.x };
+    }
+
+    return { left: placement.x, right: placement.x + frontEdgeAt(path, local) };
+  }
+
+  it('honours the requested clearance between every neighbouring pair', () => {
+    const { paths } = fitAllPaths(design);
+    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+
+    expect(nest.sheetCount).toBeGreaterThan(0);
+
+    for (const sheet of nest.sheets) {
+      for (let index = 1; index < sheet.placements.length; index += 1) {
+        const before = sheet.placements[index - 1] as NestPlacement;
+        const after = sheet.placements[index] as NestPlacement;
+
+        if (before.row !== after.row) {
+          continue;
+        }
+
+        for (let step = 0; step <= 400; step += 1) {
+          const y = before.y + (step / 400) * design.H;
+          const a = span(before, paths[before.finIndex] as FittedPath, y);
+          const b = span(after, paths[after.finIndex] as FittedPath, y);
+
+          expect(b.left).toBeGreaterThanOrEqual(a.right + stock.clearance - 1e-9);
+        }
+      }
+    }
+  });
+
+  it('keeps every part within the sheet margins', () => {
+    const { paths } = fitAllPaths(design);
+    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+
+    for (const sheet of nest.sheets) {
+      for (const placement of sheet.placements) {
+        for (let step = 0; step <= 200; step += 1) {
+          const y = placement.y + (step / 200) * design.H;
+          const extent = span(placement, paths[placement.finIndex] as FittedPath, y);
+
+          expect(extent.left).toBeGreaterThanOrEqual(stock.margin - 1e-9);
+          expect(extent.right).toBeLessThanOrEqual(stock.width - stock.margin + 1e-9);
+        }
+      }
+    }
+  });
+
+  // ─── 9.2  Nested sheet SVG scale contract ──────────────────────────────────
+
+  it('9.2 – declares physical millimetres with a matching viewBox and a stock outline', () => {
+    const { paths } = fitAllPaths(design);
+    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+    const svgs = sheetSvgs(nest, paths, {
+      sheet: stock,
+      height: design.H,
+      finCount: paths.length,
+    });
+
+    expect(svgs).toHaveLength(nest.sheetCount);
+
+    for (const svg of svgs) {
+      expect(svg).toContain('width="762.0000mm" height="762.0000mm"');
+      expect(svg).toContain('viewBox="0 0 762.0000 762.0000"');
+      // Measuring this rectangle after import is how a DPI mis-scale is caught.
+      expect(svg).toContain('id="stock-outline"');
+    }
+  });
+
+  // ─── 9.3  The cut list accounts for every slat exactly once ────────────────
+
+  it('9.3 – cut list accounts for every slat exactly once', () => {
+    const { paths } = fitAllPaths(design);
+    const metrics = computeNestMetrics(paths, design.H);
+    const nest = nestSheets(metrics, stock, design.H);
+    const rows = createCutlistCsv(nest, metrics, paths.length, design.H)
+      .trimEnd()
+      .split('\n')
+      .slice(1);
+
+    const indices = rows
+      .map((row) => Number(row.split(',')[2]))
+      .sort((left, right) => left - right);
+
+    expect(indices).toEqual(paths.map((_, index) => index));
+  });
+
+  // ─── 9.4  Nesting beats naive fixed-pitch placement ────────────────────────
+
+  it('9.4 – nesting needs fewer sheets than naive fixed-pitch placement', () => {
+    const { paths } = fitAllPaths(design);
+    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+
+    const perRow = Math.floor(
+      (stock.width - 2 * stock.margin + stock.clearance) / (design.D + stock.clearance),
+    );
+
+    expect(nest.sheetCount).toBeLessThan(
+      Math.ceil(paths.length / (perRow * nest.rowsPerSheet)),
+    );
+  });
+
+  // ─── 9.5  Nested geometry equals per-slat export geometry ──────────────────
+
+  it('9.5 – a part at the identity placement matches its per-slat path exactly', () => {
+    const { paths } = fitAllPaths(design);
+    const path = paths[0] as FittedPath;
+
+    // Same FittedPath, same process — this locks the two emitters together the
+    // way 8.10 locks the inspector to the export.
+    expect(
+      placedPathData(path, { finIndex: 0, x: 0, y: 0, rotation: 0, row: 0 }, design.H),
+    ).toBe(slatPathData(path));
   });
 });

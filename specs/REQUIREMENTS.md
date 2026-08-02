@@ -213,6 +213,17 @@ while the condition holds.)*
 - **FR-VAL.11** — All interference source weights zero (`Σ|weights| = 0`, would divide by
   zero) → at the sources panel: *"At least one source weight must be non-zero."*
   `[PRD §8.3] · §1.7-G`
+- **FR-VAL.12** — With nesting enabled: non-positive sheet width/height → *"Value must be
+  greater than zero."*; negative edge margin → *"Edge margin cannot be negative."*; negative
+  part clearance → *"Part clearance cannot be negative."* `[PRD §10]`
+- **FR-VAL.13** — With nesting enabled and usable sheet height `< H` → at sheet height:
+  *"Sheet height is too small to fit a full-height slat."* `[PRD §10]`
+- **FR-VAL.14** — With nesting enabled and usable sheet width `< p_min` → at sheet width:
+  *"Sheet width is too small to fit a single slat profile."* `[PRD §10]`
+
+  > FR-VAL.12–.14 are computable from the design plus the sheet config alone, with no
+  > geometry evaluation, so they belong to the synchronous validation tier and genuinely
+  > disable export (see FR-UI.3 and TECH_SPEC TS-D12).
 
 **Soft warnings** *(Accept: non-blocking inline warning; export stays enabled.)*
 - **FR-VAL.6** — `N > 400` → *"Large fin count ({N}) — preview and export may be slow."*
@@ -223,6 +234,15 @@ while the condition holds.)*
   `[PRD §7, §10] · §1.7-C`
 - **FR-VAL.9** — The system SHALL NOT emit a depth-clipping warning; peaks are bounded by `D`
   by construction (FR-GEO.3). `[PRD §9]`
+- **FR-VAL.15** — Slats too wide to fit the usable sheet width → *"{n} slats are too wide for
+  this sheet and were left unnested."* The affected slats are still emitted as per-slat SVGs
+  and still appear in the cut list with an empty sheet column. `[PRD §10]`
+- **FR-VAL.16** — Nesting requiring more than ~50 sheets (tunable) → *"Design needs {n} sheets
+  of stock — consider a larger sheet."* `[PRD §10]`
+
+  > FR-VAL.15–.16 depend on a nest result, which depends on worker output. Because export
+  > enablement is decided in the synchronous tier (FR-UI.3), these SHALL be soft warnings —
+  > a hard block here would appear in the UI without actually disabling export.
 
 ### 3.6 FR-EXP — Export
 - **FR-EXP.1** — Export SHALL produce one SVG per slat, true geometry, at **1:1 real-world
@@ -271,6 +291,37 @@ while the condition holds.)*
   .10, .11) is active, enabled otherwise. `[PRD §11, §12]`
 - **FR-UI.4** — Layout SHALL target a wide viewport (desktop-first) and remain functional on
   a tablet; no phone-specific optimization. `[PRD §12]`
+
+### 3.8 FR-NEST — Stock sheet nesting
+
+- **FR-NEST.1** — The app SHALL accept a stock configuration: sheet width, sheet height, edge
+  margin, part clearance, and a label style, plus an enable/disable toggle. Stock
+  configuration is machine state, distinct from the design. `[PRD §10]`
+- **FR-NEST.2** — With nesting enabled, the app SHALL report the number of stock sheets
+  required, rows per sheet, and stock utilisation, updating live as parameters change.
+  `[PRD §10]`
+- **FR-NEST.3** — Nested parts SHALL NOT overlap, and SHALL be separated by at least the
+  configured clearance at every height. Parts SHALL lie entirely within the sheet less its
+  edge margin. *Accept: sampled collision test across all three wave families (V-7, 9.1).*
+- **FR-NEST.4** — Parts SHALL be placed in fin-index order, alternating 0° and 180° in-plane
+  rotation. The system SHALL NOT mirror parts: a mirrored slat is only interchangeable if the
+  stock has no show face. `[PRD §10]`
+- **FR-NEST.5** — Export SHALL emit one SVG per sheet under `sheets/`, each carrying explicit
+  physical units and a matching `viewBox` per FR-EXP.1, one closed path per part, and a
+  clearly-identified stock outline that is not a cut path.
+- **FR-NEST.6** — Placement transforms SHALL be baked into emitted coordinates; cut geometry
+  SHALL NOT rely on SVG `transform` attributes. *Rationale: primitive CAM importers mishandle
+  nested transforms.*
+- **FR-NEST.7** — Export SHALL emit a `cutlist.csv` mapping every slat to its sheet, position,
+  rotation, and size. Every slat SHALL appear exactly once, including unnestable slats.
+- **FR-NEST.8** — Part clearance is inter-part spacing only. The system SHALL NOT offset part
+  geometry for kerf or tool diameter (consistent with PRD §4).
+- **FR-NEST.9** — Part labels SHALL be emitted in a group separate from cut geometry, and
+  SHALL be authored so they read upright after the CAM tool applies its Y-axis flip
+  (FR-EXP.6). A stroked-outline label style SHALL be available for importers that discard SVG
+  text.
+- **FR-NEST.10** — Disabling nesting SHALL leave the per-slat export path fully functional and
+  SHALL suppress all stock-sheet validation.
 
 ---
 
@@ -340,7 +391,7 @@ while the condition holds.)*
 ## 6. Out of scope (v1)
 
 Per PRD §4 and §14, the following are explicitly **not** v1 requirements: user accounts /
-cloud save / sharing; automatic sheet nesting; kerf/tool-diameter compensation; engraving,
+cloud save / sharing; kerf/tool-diameter compensation; engraving,
 registration holes, mounting slots, joinery; horizontal-slat or curved-wall layouts;
 material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF export.
 
@@ -354,9 +405,9 @@ material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF e
 | §7 Inputs | FR-IN.1–.5, §5 |
 | §8 Wave library | FR-WAVE.1–.4, FR-VAL.3, FR-VAL.11, §1.7-E/F |
 | §9 Visualization | FR-VIZ.1–.6, FR-VAL.6, FR-VAL.9, NFR-PERF.1–.3 |
-| §10 Export | FR-EXP.1–.9, FR-VIZ.3–.4, FR-VAL.8/.10, §1.7-A/B/C/D/G |
+| §10 Export | FR-EXP.1–.9, FR-NEST.1–.10, FR-VIZ.3–.4, FR-VAL.8/.10/.12–.16, §1.7-A/B/C/D/G |
 | §11 User flow | FR-UI.1–.4 |
-| §12 Constraints & validation | FR-VAL.1–.11, FR-IN.5, A1–A5, NFR-COMPAT, NFR-PRIV, NFR-ACCURACY |
+| §12 Constraints & validation | FR-VAL.1–.16, FR-IN.5, A1–A5, NFR-COMPAT, NFR-PRIV, NFR-ACCURACY |
 | §13 Success metrics | NFR-PERF.1, NFR-ACCURACY.1, NFR-A11Y, FR-UI.1 |
 | §14 Future considerations | §6 Out of scope, FR-VIZ.5 |
 | §15 Open questions | §5 (defaults set), §1.7-B (Y convention resolved), §8 (residual issues) |
@@ -370,8 +421,10 @@ material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF e
 - **OI-3 — Interference source cap `K`.** Capped at 8; confirm against the `wave.jpg` look.
 - **OI-4 — Parameter ranges.** All §5 values are proposals open to revision.
 - **OI-5 — WebGL-absent degraded mode.** Exact fallback (NFR-COMPAT.1) → tech spec.
-- **OI-6 — Soft-warning thresholds.** Fin count 400 and segment count ~50 000 are tunable
-  placeholders.
+- **OI-6 — Soft-warning thresholds.** Fin count 400, segment count ~50 000, and sheet count
+  50 are tunable placeholders.
+- **OI-7 — Default label style.** Defaults to SVG `<text>`; if the V-7 import shows Carbide
+  Create discards text elements, switch the default to the stroked-outline style (FR-NEST.9).
 
 *(Former OI-1, SVG Y convention, is resolved — §1.7-B.)*
 
@@ -394,3 +447,10 @@ material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF e
   block (with message + export disabled) or soft warning (export enabled).
 - **V-6 — Inspector == export.** Compare the 2D inspector path to the exported SVG for the
   same fin; confirm geometric equivalence (FR-VIZ.3).
+- **V-7 — Carbide Create nested-sheet import (critical, manual).** Import
+  `sheets/sheet_001.svg` and confirm: the `stock` outline measures the configured sheet size
+  (a reading of 2880 mm or 201.6 mm for a 762 mm sheet indicates a 96-DPI conversion); every
+  part is present, upright, and inside the stock; each part is a **separate selectable
+  object**, not one compound path; no repair/heal prompt appears; an outside-contour toolpath
+  offsets outward on every part. Also record **whether `<text>` labels survive import** —
+  that outcome decides the FR-NEST.9 default (OI-7).

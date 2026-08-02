@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 
+import { CUTLIST_FILENAME } from './cutlist';
 import {
   MANIFEST_FILENAME,
   serializeDesignManifest,
@@ -7,10 +8,14 @@ import {
 } from './manifest';
 
 export const EXPORT_ZIP_FILENAME = 'parawave-design.zip';
+export const SLATS_DIR = 'slats/';
+export const SHEETS_DIR = 'sheets/';
 
 export interface CreateExportZipOptions {
   manifest: ParaWaveManifest;
   slatSvgs: readonly string[];
+  sheetSvgs?: readonly string[];
+  cutlistCsv?: string;
 }
 
 export function slatFilename(index: number, finCount: number): string {
@@ -22,19 +27,43 @@ export function slatFilename(index: number, finCount: number): string {
   return `slat_${String(index + 1).padStart(width, '0')}.svg`;
 }
 
+export function sheetFilename(index: number, sheetCount: number): string {
+  if (!Number.isInteger(index) || index < 0 || index >= sheetCount) {
+    throw new RangeError('Sheet index must be inside the exported sheet range.');
+  }
+
+  const width = Math.max(3, String(sheetCount).length);
+  return `sheet_${String(index + 1).padStart(width, '0')}.svg`;
+}
+
 export async function createExportZip({
   manifest,
   slatSvgs,
+  sheetSvgs,
+  cutlistCsv,
 }: CreateExportZipOptions): Promise<Blob> {
   if (slatSvgs.length !== manifest.computed.finCount) {
     throw new Error('SVG count must match the manifest fin count.');
   }
 
+  if (sheetSvgs && sheetSvgs.length !== (manifest.computed.nesting?.sheetCount ?? -1)) {
+    throw new Error('Sheet SVG count must match the manifest sheet count.');
+  }
+
   const archive = new JSZip();
 
-  slatSvgs.forEach((svg, index) => {
-    archive.file(slatFilename(index, slatSvgs.length), svg);
+  // Nested sheets first — they are what the user opens to cut.
+  sheetSvgs?.forEach((svg, index) => {
+    archive.file(SHEETS_DIR + sheetFilename(index, sheetSvgs.length), svg);
   });
+  slatSvgs.forEach((svg, index) => {
+    archive.file(SLATS_DIR + slatFilename(index, slatSvgs.length), svg);
+  });
+
+  if (cutlistCsv !== undefined) {
+    archive.file(CUTLIST_FILENAME, cutlistCsv);
+  }
+
   archive.file(MANIFEST_FILENAME, serializeDesignManifest(manifest));
 
   return archive.generateAsync({

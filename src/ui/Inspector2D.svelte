@@ -122,6 +122,7 @@
 <style>
   .inspector {
     display: grid;
+    min-width: 0;
     min-height: 0;
     gap: 1rem;
     color: var(--ink);
@@ -129,7 +130,13 @@
 
   .inspector-header {
     display: grid;
+    min-width: 0;
     gap: 0.75rem;
+  }
+
+  h2,
+  .eyebrow {
+    overflow-wrap: anywhere;
   }
 
   .eyebrow,
@@ -159,15 +166,24 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 1rem;
+    /* Long values wrap under their label instead of widening the panel; flex
+       items default to min-width:auto, which would otherwise refuse to shrink. */
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
     border-top: 1px solid var(--edge);
     padding-top: 0.45rem;
   }
 
+  dt {
+    min-width: 0;
+  }
+
   dd {
+    min-width: 0;
     margin: 0;
     color: var(--gold-bright);
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
 
   .drawing {

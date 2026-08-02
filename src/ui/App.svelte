@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
+  import { nestSheets } from '../core/nest/pack';
+  import { sheetSvgs } from '../core/sheet-svg';
   import { slatSvgs } from '../core/svg';
   import type { ComputeResult } from '../core/types';
   import {
+    createCutlistCsv,
     createDesignManifest,
     createExportZip,
     downloadExportZip,
@@ -105,11 +108,33 @@
 
     try {
       const design = store.snapshot();
+      const stock = store.sheetSnapshot();
       const result = await computeExportGeometry(design);
-      const manifest = createDesignManifest(design, result.paths.length);
+      // Same function and same metrics as the live readout, so the exported
+      // layout is the one the user was looking at.
+      const nest = stock.enabled ? nestSheets(result.nest, stock, design.H) : null;
+      const manifest = createDesignManifest(design, result.paths.length, {
+        stock,
+        nest,
+      });
       const archive = await createExportZip({
         manifest,
         slatSvgs: slatSvgs(result.paths, design),
+        ...(nest
+          ? {
+              sheetSvgs: sheetSvgs(nest, result.paths, {
+                sheet: stock,
+                height: design.H,
+                finCount: result.paths.length,
+              }),
+              cutlistCsv: createCutlistCsv(
+                nest,
+                result.nest,
+                result.paths.length,
+                design.H,
+              ),
+            }
+          : {}),
       });
 
       downloadExportZip(archive);
@@ -357,6 +382,8 @@
           readouts={store.readouts}
           actualDepthRange={store.actualDepthRange}
           totalSegments={store.totalSegments}
+          sheet={store.sheet}
+          nest={store.nest}
         />
         <ValidationList validation={store.validation} />
       </div>
@@ -378,8 +405,14 @@
     position: relative;
     isolation: isolate;
     display: grid;
-    min-height: 100vh;
-    grid-template-rows: 64px 1fr;
+    /* Pin the shell to the viewport so the rails scroll internally rather than
+       growing the page — a taller page would push the 3D viewport off-centre. */
+    height: 100vh;
+    height: 100dvh;
+    /* minmax(0, 1fr), not 1fr: a bare 1fr floors at min-content and would let
+       tall rail content stretch the row. */
+    grid-template-rows: 64px minmax(0, 1fr);
+    overflow: hidden;
     color: var(--ink);
     background:
       radial-gradient(circle at 53% 38%, var(--gold-glow), transparent 35rem),
@@ -471,6 +504,7 @@
     min-height: 0;
     grid-template-columns: 360px minmax(560px, 1fr) 320px;
     grid-template-areas: 'rail viewport right';
+    overflow: hidden;
   }
 
   .panel-tabs {
@@ -479,8 +513,11 @@
 
   .rail,
   .right-panel {
+    min-width: 0;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: color-mix(in srgb, var(--panel) 92%, transparent);
   }
 
@@ -504,6 +541,10 @@
 
   .rail :global(details:nth-of-type(3)) {
     animation-delay: 160ms;
+  }
+
+  .rail :global(details:nth-of-type(4)) {
+    animation-delay: 200ms;
   }
 
   .right-panel {
@@ -842,7 +883,21 @@
 
   @media (max-width: 819px) {
     .app-shell {
+      /* Stacked layout: the page itself scrolls, so release the viewport pin. */
+      height: auto;
+      min-height: 100dvh;
       grid-template-rows: auto 1fr;
+      overflow: visible;
+    }
+
+    .instrument {
+      overflow: visible;
+    }
+
+    .rail,
+    .right-panel {
+      overflow: visible;
+      overscroll-behavior: auto;
     }
 
     .topbar {

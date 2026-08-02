@@ -1,5 +1,6 @@
 import { fitAllPaths } from '../core/fit/adaptive';
 import { buildMesh } from '../core/mesh';
+import { computeNestMetrics } from '../core/nest/profile';
 import type { ComputeRequest, ComputeResult, MeshBuffers } from '../core/types';
 
 export function computeGeometry(request: ComputeRequest): ComputeResult {
@@ -9,6 +10,10 @@ export function computeGeometry(request: ComputeRequest): ComputeResult {
     paths: fitted.paths,
     observedDepth: fitted.observedDepth,
     totalSegments: fitted.totalSegments,
+    // Geometry-derived nesting inputs only. The packing itself is O(N)
+    // arithmetic and runs on the main thread, so sheet-parameter changes never
+    // trigger a re-fit.
+    nest: computeNestMetrics(fitted.paths, request.design.H),
   };
 
   if (request.needMesh) {

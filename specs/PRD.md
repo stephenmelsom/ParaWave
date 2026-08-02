@@ -24,8 +24,8 @@ There is no simple, free, web-based tool that goes straight from "a few paramete
 
 ## 4. Non-goals (v1)
 - No user accounts, cloud save, or design sharing.
-- No automatic sheet nesting / material-optimization layout (user nests in their own CAM).
 - No toolpath, kerf, or tool-diameter compensation (export true geometry; CAM applies offset).
+  Nesting clearance is *spacing* between parts only, not a geometry offset.
 - No engraving, registration holes, mounting slots, or joinery features on slats.
 - No horizontal-slat or curved-wall layouts; vertical slats on a flat wall only.
 - No material/cost estimation or cut-time estimation.
@@ -117,7 +117,13 @@ slicing or export pipeline.
   physical units (mm/inch) so CAD/CAM imports at correct size.
 - **Naming:** sequential, zero-padded, ordered across the width (e.g. `slat_001.svg` …
   `slat_NNN.svg`) so assembly order is unambiguous from filenames.
-- **Bundling:** all slat SVGs delivered as a single downloadable `.zip`.
+- **Bundling:** all slat SVGs delivered as a single downloadable `.zip`, under `slats/`.
+- **Stock nesting:** given a sheet size, edge margin, and part clearance, the user gets one
+  pre-laid-out SVG per sheet under `sheets/`, plus a `cutlist.csv` mapping each slat to its
+  sheet, position, and rotation. Sheet count and stock utilisation are shown live in the
+  readouts. Parts are packed in fin order alternating 0°/180° so wavy edges interlock; only
+  in-plane rotation is used, never mirroring, so the plywood show face is preserved.
+  Nesting can be turned off, in which case only the per-slat files are produced.
 - **Geometry:** each slat is one closed path (the cut outline). The straight back/top/bottom
   edges are line segments; the curved front edge is a **smooth cubic-Bézier path fitted
   (Catmull-Rom) through densely sampled points** at the chosen sample density (§7), so the cut
@@ -159,8 +165,9 @@ slicing or export pipeline.
 
 ## 14. Future considerations (post-v1)
 - Assembled 2D front-elevation view (all fin edges together) — targeted for v1.1.
-- Automatic sheet nesting and material-yield optimization.
 - Saved/shareable designs (URL params or config import/export).
+- Smarter nesting: multi-row bin packing, mirroring where the show face allows it, 90°
+  rotation, and reordering parts away from strict fin order.
 - More wave families (Gaussian bumps, noise/terrain, image-driven height maps).
 - Optional engraving (slat numbers), registration holes, and mounting/joinery features.
 - Kerf/tool-diameter compensation; DXF export; horizontal slats and non-flat walls.

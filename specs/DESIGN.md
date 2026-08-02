@@ -328,6 +328,27 @@ The single saturated primary action (header right). Solid `--gold` fill, `--bg` 
 - **Working:** brief in-button progress affordance (mono "…packing 037 slats") while the zip
   builds; returns to default on completion. Export always runs at full fidelity (FR-VIZ.4).
 
+### 5.10 Stock Sheet section
+A fourth `<details>` group in the control rail, below Fit Tolerance, sharing the rail's
+`nth-of-type` reveal stagger (§6).
+- **Enable toggle** first: a `.control-row` checkbox (`--gold` accent) on a 44 px-tall row so
+  the tap target stays comfortable on tablet (FR-UI.4). Unchecking collapses the rest of the
+  group — nesting off must never strand the user behind a stock error (FR-NEST.10).
+- **Four sliders + paired numeric inputs** reusing §5.1 verbatim: sheet width, sheet height,
+  edge margin, part clearance. Length units follow the global toggle (§5.4), converted at the
+  input boundary only.
+- **Part labels** select: *Text* / *Engravable outlines* / *None* (FR-NEST.9).
+- A muted `--ink-faint` group note carries the two things a user can get wrong: clearance is
+  spacing, not kerf compensation; and the stock outline in the exported SVG is a reference
+  rectangle, not a cut path.
+- Sheet issues bind by the dotted field convention (`sheet.width`, …), matching the existing
+  `wave.sources.N.lambda` pattern, so §7.1 validation states apply unchanged.
+
+The readouts strip (§5.5) gains a second hero number, **stock sheets**, beside fin count —
+it is the headline answer the feature exists to give — plus slats-per-sheet, rows-per-sheet,
+and stock utilisation rows. Before the first `ComputeResult` it reads `computing`; with
+nesting disabled, `nesting off`.
+
 ---
 
 ## 6. Motion & micro-interactions
@@ -459,10 +480,11 @@ Light-touch but real (SRS §4.6):
 | §5.3 Sources editor | FR-WAVE.3 (K∈[1,8]), FR-VAL.3/.11 |
 | §5.4 Unit toggle | FR-IN.2 (display-only), TS-D8 |
 | §5.5 Readouts | FR-IN.4 (incl. observed depth range) |
-| §5.6 Validation list | FR-VAL.1–.9, TECH_SPEC §10 |
+| §5.6 Validation list | FR-VAL.1–.16, TECH_SPEC §10 |
 | §5.7 Viewport / §8 atmosphere | FR-VIZ.1/.6, TECH_SPEC §8.2 |
 | §5.8 2D inspector | FR-VIZ.3, V-6, FR-GEO.6 / §1.7-B |
 | §5.9 Export button | FR-UI.3, FR-EXP.4, FR-VIZ.4 |
+| §5.10 Stock Sheet | FR-NEST.1/.2/.9/.10, FR-VAL.12–.16, TS-D12 |
 | §6 Motion | FR-VIZ.2 (coalesced live updates); NFR-A11Y (reduced motion) |
 | §7.1 Validation states | FR-VAL tiers, FR-UI.3, FR-IN.5, TS-D7 |
 | §7.2 Selection | FR-VIZ.6 |

@@ -1,9 +1,10 @@
 import { computeFinCount } from './geometry';
-import type { Design, Source, WaveConfig } from './types';
+import type { Design, SheetConfig, Source, WaveConfig } from './types';
 import { sourceWeightTotal } from './wave/interference';
 
 export const FIN_WARN = 400;
 export const SEGMENT_WARN = 50_000;
+export const SHEET_WARN = 50;
 
 export type ValidationTier = 'hard' | 'soft';
 
@@ -19,7 +20,12 @@ export type ValidationCode =
   | 'FR-VAL.7'
   | 'FR-VAL.8'
   | 'FR-VAL.10'
-  | 'FR-VAL.11';
+  | 'FR-VAL.11'
+  | 'FR-VAL.12'
+  | 'FR-VAL.13'
+  | 'FR-VAL.14'
+  | 'FR-VAL.15'
+  | 'FR-VAL.16';
 
 export interface ValidationIssue {
   code: ValidationCode;
@@ -30,6 +36,11 @@ export interface ValidationIssue {
 
 export interface ValidationOptions {
   totalSegments?: number;
+  sheet?: SheetConfig;
+  nest?: {
+    sheetCount: number;
+    unplacedCount: number;
+  };
 }
 
 export interface ValidationResult {
@@ -71,6 +82,91 @@ function wavelengthIssuesForWave(wave: WaveConfig): ValidationIssue[] {
     case 'interference':
       return wave.sources.flatMap(wavelengthIssuesForSource);
   }
+}
+
+/**
+ * Stock sheet rules.
+ *
+ * FR-VAL.12–.14 are computable from `Design` + `SheetConfig` alone, so they are
+ * hard blocks in the synchronous cheap tier and genuinely disable export.
+ * FR-VAL.15–.16 depend on a nest result, which arrives from the worker — and
+ * `exportEnabled` derives from the cheap tier, so an expensive-tier hard block
+ * would appear in the UI without disabling the button. They are soft warnings
+ * instead: unnestable slats still appear in the cut list and the per-slat SVGs
+ * are unaffected.
+ */
+function sheetIssues(design: Design, options: ValidationOptions): ValidationIssue[] {
+  const sheet = options.sheet;
+
+  if (!sheet || !sheet.enabled) {
+    return [];
+  }
+
+  const issues: ValidationIssue[] = [];
+
+  if (!(sheet.width > 0)) {
+    issues.push(hard('FR-VAL.12', 'sheet.width', 'Value must be greater than zero.'));
+  }
+
+  if (!(sheet.height > 0)) {
+    issues.push(hard('FR-VAL.12', 'sheet.height', 'Value must be greater than zero.'));
+  }
+
+  if (sheet.margin < 0) {
+    issues.push(hard('FR-VAL.12', 'sheet.margin', 'Edge margin cannot be negative.'));
+  }
+
+  if (sheet.clearance < 0) {
+    issues.push(hard('FR-VAL.12', 'sheet.clearance', 'Part clearance cannot be negative.'));
+  }
+
+  if (issues.length > 0) {
+    return issues;
+  }
+
+  if (sheet.height - 2 * sheet.margin < design.H) {
+    issues.push(
+      hard(
+        'FR-VAL.13',
+        'sheet.height',
+        'Sheet height is too small to fit a full-height slat.',
+      ),
+    );
+  }
+
+  if (sheet.width - 2 * sheet.margin < design.pMin) {
+    issues.push(
+      hard(
+        'FR-VAL.14',
+        'sheet.width',
+        'Sheet width is too small to fit a single slat profile.',
+      ),
+    );
+  }
+
+  const nest = options.nest;
+
+  if (nest && nest.unplacedCount > 0) {
+    issues.push(
+      soft(
+        'FR-VAL.15',
+        'sheet.width',
+        `${nest.unplacedCount} slats are too wide for this sheet and were left unnested.`,
+      ),
+    );
+  }
+
+  if (nest && nest.sheetCount > SHEET_WARN) {
+    issues.push(
+      soft(
+        'FR-VAL.16',
+        'sheet.width',
+        `Design needs ${nest.sheetCount} sheets of stock — consider a larger sheet.`,
+      ),
+    );
+  }
+
+  return issues;
 }
 
 export function validateDesign(
@@ -144,6 +240,8 @@ export function validateDesign(
       ),
     );
   }
+
+  issues.push(...sheetIssues(design, options));
 
   const hardBlocks = issues.filter((issue) => issue.tier === 'hard');
   const warnings = issues.filter((issue) => issue.tier === 'soft');

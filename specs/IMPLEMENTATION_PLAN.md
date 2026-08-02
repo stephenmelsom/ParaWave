@@ -188,6 +188,37 @@ is done. M7 can be layered incrementally across M4–M6 rather than deferred ent
 
 ---
 
+## Task 9 — Stock sheet nesting
+
+Adds automatic nesting onto user-specified stock (FR-NEST.1–.10, FR-VAL.12–.16, TS-D12).
+Phases 9.1–9.2 are self-contained pure `core/` work with no integration risk; the rest is
+plumbing.
+
+- [x] **M9.1** `core/nest/profile.ts` — monotone edge profiles from cubic critical points,
+  exact width/area, and the conservative `matingBound`. Tests: bound never under-estimates
+  (the safety property), and stays within 0.3 mm of the true pitch.
+- [x] **M9.2** `core/nest/pack.ts` — `nestSheets` with 0°/180° alternation, rows, unplaced
+  handling, skipped-fin mate fallback, and the stale-metrics guard. Tests: no-overlap across
+  all three wave families, conservation, beats fixed-pitch placement.
+- [x] **M9.3** `SheetConfig` + `NestMetrics` in `core/types.ts`, `ComputeResult.nest`, worker
+  wiring, and FR-VAL.12–.16. No existing `Design` fixture touched.
+- [x] **M9.4** `core/sheet-svg.ts` (baked transforms, stock/parts/labels groups, text and
+  stroke label styles) and `export/cutlist.ts`.
+- [x] **M9.5** `sheets/` + `slats/` ZIP layout, `sheetFilename`, manifest schema v2 with
+  `stock` and `computed.nesting`, and the `exportDesign` wiring.
+- [x] **M9.6** Store `sheet` state and setters, `nest` derived, ParamPanel Stock Sheet section
+  (DESIGN §5.10), Readouts nesting rows.
+- [x] **M9.7** Verification blocks 9.1–9.5, spec updates, README nesting + DPI-diagnostic
+  section, CLAUDE.md notes.
+- [ ] **M9.8 — V-7 Carbide Create nested-sheet import (manual).** Import
+  `sheets/sheet_001.svg`. Confirm the stock outline measures the configured sheet size (2880 mm
+  or 201.6 mm for a 762 mm sheet means a 96-DPI conversion), all parts present, upright and
+  inside the stock, **one selectable object per part** (not a compound path), no repair prompt,
+  and an outside-contour toolpath offsetting outward. Record whether `<text>` survives — that
+  decides OI-7. *(FR-NEST.5/.6/.9, V-7)*
+
+---
+
 ## Open issues to resolve during implementation
 
 These are carried from the SRS/TECH_SPEC and need a concrete value before the code that depends
@@ -200,5 +231,7 @@ on them can be considered finished:
 | OI-4 | M5.4 build | Tune parameter ranges (SRS §5) against the physical piece. |
 | OI-6 | M8.15 + profiling | Tune `FIN_WARN=400` and `SEGMENT_WARN≈50000` against a typical laptop. |
 | new | M2.11 | Choose `SEED_PER_WAVELENGTH` and `MAX_DEPTH` so a worst-case short-λ design stays ≤ tolerance without pathological segment counts. Validate via M8.3. |
+| OI-7 | M9.8 (V-7 import) | If Carbide Create discards SVG `<text>`, flip the `labelStyle` default to `'stroke'`. |
+| new | M9.1 profiling | `PROFILE_INTERVALS=2048` trades bound tightness (wasted stock) against metric cost; affects tightness only, never correctness. |
 | DI-1 | M7.10 | Final hex token values after WCAG AA audit. |
 | DI-3 | M7.5 / M7.8 | Validate grain overlay render cost; drop to static tiled asset if needed. |

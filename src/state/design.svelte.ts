@@ -1,11 +1,15 @@
+import { nestSheets } from '../core/nest/pack';
+import type { NestResult } from '../core/nest/pack';
 import { computeReadouts } from '../core/readouts';
 import type {
   ComputeResult,
   Design,
   DiagonalSource,
   DiagonalWaveConfig,
+  LabelStyle,
   RadialSource,
   RadialWaveConfig,
+  SheetConfig,
   Source,
   Unit,
   WaveConfig,
@@ -24,6 +28,9 @@ export const DESIGN_NUMBER_FIELDS = [
   'fitTolerance',
 ] as const;
 
+export const SHEET_NUMBER_FIELDS = ['width', 'height', 'margin', 'clearance'] as const;
+
+export type SheetNumberField = (typeof SHEET_NUMBER_FIELDS)[number];
 export type DesignNumberField = (typeof DESIGN_NUMBER_FIELDS)[number];
 export type DiagonalParam = Exclude<keyof DiagonalWaveConfig, 'kind'>;
 export type RadialParam = Exclude<keyof RadialWaveConfig, 'kind'>;
@@ -104,19 +111,52 @@ export function createLandingDesign(): Design {
 
 export const LANDING_DESIGN = createLandingDesign();
 
+/** 762 mm is exactly 30 inches, so the defaults read cleanly in either unit. */
+export function createDefaultSheet(): SheetConfig {
+  return {
+    enabled: true,
+    width: 762,
+    height: 762,
+    margin: 10,
+    clearance: 6,
+    labelStyle: 'text',
+  };
+}
+
 export class DesignStore {
   design = $state<Design>(createLandingDesign());
+  // Machine/stock configuration deliberately kept off `Design`: the recompute
+  // effect subscribes by deep-reading a design snapshot, so a field here would
+  // re-fit every path on every sheet-slider tick.
+  sheet = $state<SheetConfig>(createDefaultSheet());
   computeResult = $state<ComputeResult | null>(null);
 
   readouts = $derived(computeReadouts(this.design));
-  cheapValidation = $derived(validateDesign(this.design));
+  // Packing is O(N) arithmetic over worker-supplied metrics, so it is cheap
+  // enough to sit in the synchronous derived tier. Metrics from a previous H
+  // are reported as "not yet known" rather than nested, so a one-frame lag
+  // after an H change cannot flash a bogus "slats too wide" warning.
+  nest = $derived<NestResult | null>(
+    this.computeResult &&
+      this.sheet.enabled &&
+      this.computeResult.nest.height === this.design.H
+      ? nestSheets(this.computeResult.nest, this.sheet, this.design.H)
+      : null,
+  );
+  cheapValidation = $derived(validateDesign(this.design, { sheet: this.sheet }));
   validation = $derived(
-    validateDesign(
-      this.design,
-      this.computeResult
-        ? { totalSegments: this.computeResult.totalSegments }
-        : {},
-    ),
+    validateDesign(this.design, {
+      sheet: this.sheet,
+      ...(this.computeResult ? { totalSegments: this.computeResult.totalSegments } : {}),
+      ...(this.nest
+        ? {
+            nest: {
+              sheetCount: this.nest.sheetCount,
+              unplacedCount: this.nest.unplaced.length,
+            },
+          }
+        : {}),
+    }),
   );
   exportEnabled = $derived(this.cheapValidation.exportEnabled);
   canComputeGeometry = $derived(this.cheapValidation.hardBlocks.length === 0);
@@ -264,6 +304,18 @@ export class DesignStore {
     }
   }
 
+  setSheetNumber(field: SheetNumberField, valueMm: number): void {
+    this.sheet[field] = valueMm;
+  }
+
+  setSheetEnabled(enabled: boolean): void {
+    this.sheet.enabled = enabled;
+  }
+
+  setSheetLabelStyle(style: LabelStyle): void {
+    this.sheet.labelStyle = style;
+  }
+
   setComputeResult(result: ComputeResult): void {
     this.computeResult = result;
   }
@@ -272,8 +324,13 @@ export class DesignStore {
     return $state.snapshot(this.design) as Design;
   }
 
+  sheetSnapshot(): SheetConfig {
+    return $state.snapshot(this.sheet) as SheetConfig;
+  }
+
   reset(): void {
     this.design = createLandingDesign();
+    this.sheet = createDefaultSheet();
     this.computeResult = null;
   }
 

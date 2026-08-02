@@ -1,13 +1,22 @@
 import packageMetadata from '../../package.json';
 
 import { cloneDesign } from '../core/clone';
-import type { Design, Unit } from '../core/types';
+import type { NestResult } from '../core/nest/pack';
+import type { Design, SheetConfig, Unit } from '../core/types';
 
 export const MANIFEST_FILENAME = 'parawave-design.json';
 export const APP_VERSION = packageMetadata.version;
 
+export interface ManifestNesting {
+  sheetCount: number;
+  rowsPerSheet: number;
+  placedCount: number;
+  unplacedFinIndices: number[];
+  utilization: number;
+}
+
 export interface ParaWaveManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   app: {
     name: 'ParaWave';
     version: string;
@@ -20,13 +29,22 @@ export interface ParaWaveManifest {
   };
   computed: {
     finCount: number;
+    /** Null when nesting was disabled for this export. */
+    nesting: ManifestNesting | null;
   };
+  /**
+   * Machine and stock configuration. A sibling of `design`, not a member of it —
+   * the same design can be cut on different machines.
+   */
+  stock: SheetConfig | null;
   design: Design;
 }
 
 export interface CreateManifestOptions {
   appVersion?: string;
   exportedAt?: Date | string;
+  stock?: SheetConfig | null;
+  nest?: NestResult | null;
 }
 
 function exportTimestamp(value: Date | string | undefined): string {
@@ -46,8 +64,10 @@ export function createDesignManifest(
     throw new RangeError('Manifest fin count must be a non-negative integer.');
   }
 
+  const nest = options.nest;
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     app: {
       name: 'ParaWave',
       version: options.appVersion ?? APP_VERSION,
@@ -60,7 +80,17 @@ export function createDesignManifest(
     },
     computed: {
       finCount,
+      nesting: nest
+        ? {
+            sheetCount: nest.sheetCount,
+            rowsPerSheet: nest.rowsPerSheet,
+            placedCount: nest.placedCount,
+            unplacedFinIndices: [...nest.unplaced],
+            utilization: nest.utilization,
+          }
+        : null,
     },
+    stock: options.stock ? { ...options.stock } : null,
     design: cloneDesign(design),
   };
 }

@@ -1,8 +1,8 @@
 import type { BezierSeg, Design, FittedPath } from './types';
 
-const SVG_DECIMALS = 4;
+export const SVG_DECIMALS = 4;
 
-function formatCoordinate(value: number): string {
+export function formatCoordinate(value: number): string {
   return value.toFixed(SVG_DECIMALS);
 }
 

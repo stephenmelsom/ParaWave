@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Design } from '../core/types';
+  import type { NestResult } from '../core/nest/pack';
+  import type { Design, SheetConfig } from '../core/types';
   import type { ReadoutValues } from '../core/readouts';
   import { formatMeasurement } from './inspector';
 
@@ -13,9 +14,17 @@
     readouts: ReadoutValues;
     actualDepthRange: DepthRange | null;
     totalSegments: number;
+    sheet: SheetConfig;
+    nest: NestResult | null;
   }
 
-  let { design, readouts, actualDepthRange, totalSegments }: Props = $props();
+  let { design, readouts, actualDepthRange, totalSegments, sheet, nest }: Props =
+    $props();
+
+  let sheetCountKnown = $derived(sheet.enabled && nest !== null);
+  let stockSummary = $derived(
+    !sheet.enabled ? 'nesting off' : nest ? String(nest.sheetCount) : 'computing',
+  );
 
   let declaredSpan = $derived(
     Math.max(
@@ -77,6 +86,11 @@
     <strong>{readouts.finCount}</strong>
   </div>
 
+  <div class="hero-readout">
+    <span class="label">stock sheets</span>
+    <strong class:pending={!sheetCountKnown}>{stockSummary}</strong>
+  </div>
+
   <dl>
     <div>
       <dt>spanned width</dt>
@@ -112,12 +126,37 @@
         {measurement(readouts.totalFootprint.depth)}
       </dd>
     </div>
+    {#if sheet.enabled}
+      <div>
+        <dt>slats per sheet</dt>
+        <dd>
+          {nest && nest.sheetCount > 0
+            ? nest.sheets.map((entry) => entry.placements.length).join(' · ')
+            : '—'}
+        </dd>
+      </div>
+      <div>
+        <dt>rows per sheet</dt>
+        <dd>{nest ? nest.rowsPerSheet : '—'}</dd>
+      </div>
+      <div>
+        <dt>stock utilisation</dt>
+        <dd>{nest ? `${(nest.utilization * 100).toFixed(1)}%` : '—'}</dd>
+      </div>
+      {#if nest && nest.unplaced.length > 0}
+        <div>
+          <dt>unnested slats</dt>
+          <dd>{nest.unplaced.length}</dd>
+        </div>
+      {/if}
+    {/if}
   </dl>
 </section>
 
 <style>
   .readouts {
     display: grid;
+    min-width: 0;
     gap: 12px;
     border-top: 1px solid var(--edge);
     padding-top: 14px;
@@ -161,6 +200,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The numeral size is set for a count; a word at that size dominates the panel. */
+  .hero-readout strong.pending {
+    color: var(--ink-faint);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+  }
+
   dl {
     display: grid;
     gap: 8px;
@@ -169,17 +215,26 @@
 
   dl > div {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Both tracks must be allowed to shrink; a bare `auto` value track floors at
+       min-content and pushes the panel wider than its column. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
     align-items: baseline;
     gap: 8px;
   }
 
+  dt {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   dd {
+    min-width: 0;
     margin: 0;
     color: var(--ink);
     font-size: 0.74rem;
     font-variant-numeric: tabular-nums;
     text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .actual-depth {

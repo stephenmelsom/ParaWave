@@ -36,6 +36,7 @@ the point of use, mirroring the SRS's own §1.7 override pattern:
 |----|----------|-----------|
 | **TS-D2** | Determinism is **within fit tolerance**, not byte-identical (libm `sin/cos/exp` aren't bit-stable across engines). | **FR-EXP.7**, **V-3** |
 | **TS-D8** | Exported SVG geometry is **always authored in mm** (`viewBox` 1u = 1 mm); the inch toggle is display-only. | Resolves the **§1.7-A vs FR-EXP.9** tension toward mm |
+| **TS-D12** | Nesting splits into Worker-side geometry metrics + main-thread packing; `SheetConfig` lives beside `Design`, not inside it. | Refines **FR-NEST.1–.4** (§6.6) |
 
 All other decisions in this document refine, but do not contradict, the SRS.
 
@@ -137,9 +138,13 @@ src/
     fit/
       hermite.ts             #   one Hermite cubic from (p, ∂p) endpoints
       adaptive.ts            #   §1.7-D seeding + recursive subdivision (TS-D4)
+    nest/
+      profile.ts             #   FR-NEST.3: exact monotone edge profiles + mating bound (TS-D12)
+      pack.ts                #   FR-NEST.3/.4: 0°/180° row packing over NestMetrics
     svg.ts                   # FR-EXP.1/.2/.9: closed path, mm, 4dp, Y-down (TS-D8)
+    sheet-svg.ts             # FR-NEST.5/.6/.9: nested sheet, baked transforms, labels
     units.ts                 # FR-IN.2: canonical mm ↔ display formatting
-    validation.ts            # FR-VAL.1–.11: pure predicates → typed issues
+    validation.ts            # FR-VAL.1–.16: pure predicates → typed issues
     readouts.ts              # FR-IN.4 cheap derived (N, spans, margins, stock)
     types.ts                 # Design, WaveConfig, FittedPath, ComputeRequest/Result
     mesh.ts                  # builds merged vertex/index buffers + range table from paths
@@ -161,7 +166,8 @@ src/
   state/
     design.svelte.ts         # the Design store (runes) + computed cheap-derived & validation
   export/
-    zip.ts                   # jszip bundle, zero-padded names (FR-EXP.3)
+    zip.ts                   # jszip bundle, zero-padded names (FR-EXP.3), sheets/ + slats/
+    cutlist.ts               # cutlist.csv (FR-NEST.7)
     manifest.ts              # parawave-design.json (FR-EXP.8)
   main.ts
 ```
@@ -345,6 +351,58 @@ FR-GEO.6 / §1.7-B (Y-down authored; Carbide flips to Y-up):
 > always mm at 4 dp. This keeps the `viewBox` at 1u=1mm for every design and de-risks the V-1
 > Carbide import. The user's display unit is preserved in the manifest (§9), not the geometry.
 
+### 6.6 Stock nesting (`core/nest/`) — TS-D12
+
+Every slat has the same height `H`, a flat back edge at `z = 0`, and a front edge `z = f_i(y)`.
+Placements are anchored on the **back-edge line**: a 0° part occupies `[x, x + f(y)]`, a 180°
+part occupies `[x − f(H − y), x]`. Two pitches follow:
+
+| Sequence | Facing | Pitch |
+|----------|--------|-------|
+| 0° → 180° | two wavy front edges | `max over y of (f_a(y) + f_b(H − y)) + clearance` |
+| 180° → 0° | two flat back edges | `clearance` alone, shape-independent |
+
+The second row is where the material saving comes from. Because `f ≥ p_min ≥ 0`, the pairwise
+chain constraint is sufficient — non-adjacent parts cannot collide.
+
+**The mating pitch is an exact conservative bound, not a sampled maximum.** `hermiteCubic`
+places `p1.y`/`p2.y` at exact thirds (§6.3), so `y` is affine in `t` and `z(y)` is a plain
+cubic whose interior extrema are the roots of a quadratic. Splitting each segment there yields
+intervals on which `f` is monotone, making `max(z_j, z_{j+1})` the *exact* maximum over
+interval `j`. Merging part A's partition with part B's mirrored partition and taking
+`max(intervalMax_A + intervalMax_B')` over overlapping pairs bounds the true maximum from
+above by construction — so **parts cannot overlap at any refinement density**.
+`PROFILE_INTERVALS` refines the partition uniformly and therefore trades only *tightness*
+(wasted stock), never correctness. Part area is likewise exact: `∫ z dy` over a segment is
+`(p3.y − p0.y)(p0.z + p1.z + p2.z + p3.z) / 4`.
+
+> **TS-D12 (nesting placement, and where `SheetConfig` lives).**
+>
+> **(a) Split the work.** Because parts are packed in fin-index order with strict 0°/180°
+> alternation, the only mating pitches ever needed are between *consecutive* fin indices. The
+> Worker therefore emits just `3N − 1` numbers (`NestMetrics`: widths, areas, mates) as part of
+> `ComputeResult`, and `nestSheets()` packs on the **main thread** as an O(N) loop of adds and
+> compares — cheap enough for the synchronous derived tier (TS-D7). Preview and export call the
+> identical function on identical numbers, so no preview-vs-export fidelity split is needed
+> (stronger than TS-D1's single-code-path guarantee).
+>
+> **(b) `SheetConfig` is NOT a member of `Design`.** It is a sibling `$state` field on the
+> store. The recompute effect subscribes by deep-reading a design snapshot, so any field added
+> to `Design` triggers a full adaptive re-fit when it changes — and sheet parameters provably
+> cannot affect geometry. Keeping them off `Design` also keeps the design record a pure design
+> (stock is machine configuration) and leaves every existing `Design` fixture untouched.
+> Non-`Design` validation inputs ride `ValidationOptions`, as `totalSegments` already does.
+>
+> **(c) Rotation only, never mirroring.** 180° in-plane rotation has determinant +1, so winding
+> survives and an outside-contour offset behaves exactly as it does for a per-slat file. A
+> mirrored slat would only be interchangeable if the stock had no show face (FR-NEST.4).
+
+Sheet emission (`core/sheet-svg.ts`) bakes the placement transform into the coordinates rather
+than emitting an SVG `transform` on cut geometry, since primitive CAM importers mishandle
+nested transforms (FR-NEST.6). Labels are authored **mirrored** — the document is Y-down and
+Carbide flips it wholesale (§1.7-B), so a label that reads upright in a browser would be
+engraved upside-down.
+
 ---
 
 ## 7. Web Worker pipeline
@@ -429,7 +487,18 @@ The app degrades, never crashes.
   1u=1mm, 4 dp (FR-EXP.1/.2/.9, TS-D8). No engrave/holes/slots (FR-EXP.5).
 - **Filenames:** `slat_001.svg … slat_NNN.svg`, zero-padded to `max(3, digits(N))`, ordered
   left→right so lexical sort = assembly order (FR-EXP.3).
-- **Bundle:** all SVGs + the manifest zipped via `jszip` → single download (FR-EXP.4).
+- **Nested sheet SVG** authored by `core/sheet-svg.ts` (FR-NEST.5/.6): same mm / 1u=1mm /
+  4 dp contract as the per-slat file, one closed `<path>` per part inside `<g id="parts">`
+  with the placement transform **baked into the coordinates** (never an SVG `transform`), a
+  reference `<g id="stock">` outline that is not a cut path, and `<g id="labels">` authored
+  mirrored so labels read upright after Carbide's Y-flip (§1.7-B, FR-NEST.9).
+- **Bundle:** `sheets/` + `slats/` + `cutlist.csv` + the manifest zipped via `jszip` → single
+  download (FR-EXP.4, FR-NEST.7). Sheets are written first. With nesting disabled the archive
+  degrades to `slats/` + manifest (FR-NEST.10).
+- **Manifest schema v2** adds `computed.nesting` (sheet count, rows, placed count, unplaced
+  indices, utilisation — `null` when nesting is off) and a top-level `stock` sibling of
+  `design`. Stock is machine configuration, so it is deliberately not folded into the design
+  record (TS-D12).
 - **Manifest `parawave-design.json`** (FR-EXP.8): every parameter, the **chosen display unit**
   (TS-D8), computed `N`, full wave/source config, app version, export date. One-way provenance
   (not a load feature). Timestamp/version are exempt from the within-tolerance determinism of
@@ -447,12 +516,20 @@ disabled iff any hard block is active (FR-UI.3, §5.2).
 
 | Tier | Requirements | Effect |
 |------|--------------|--------|
-| **Hard block** | FR-VAL.1–.5, .10, .11 | field-anchored message + Export disabled; computed **synchronously** (TS-D7), never silently clamped (FR-IN.5) |
-| **Soft warning** | FR-VAL.6 (N>400), .7 (gap=0), .8 (segment count) | inline warning; Export stays enabled |
+| **Hard block** | FR-VAL.1–.5, .10, .11, .12–.14 | field-anchored message + Export disabled; computed **synchronously** (TS-D7), never silently clamped (FR-IN.5) |
+| **Soft warning** | FR-VAL.6 (N>400), .7 (gap=0), .8 (segment count), .15 (unnested slats), .16 (sheet count) | inline warning; Export stays enabled |
 | **Never emitted** | FR-VAL.9 (depth clipping) | impossible by construction (FR-GEO.3) |
 
 FR-VAL.8's segment count comes from `ComputeResult.totalSegments` (expensive tier); all others
 are cheap and instant. Messages use the SRS's proposed wording verbatim.
+
+Because `exportEnabled` is derived from the **cheap** validation pass, a hard block that needs
+expensive-tier data would render in the issue list without actually disabling the button. The
+stock-sheet rules are split along exactly that line: FR-VAL.12–.14 need only `Design` +
+`SheetConfig` and are hard blocks; FR-VAL.15–.16 need a nest result and are therefore soft
+warnings that degrade gracefully (unnestable slats still ship as per-slat SVGs and still appear
+in the cut list). All stock rules are gated on an **enabled** `SheetConfig`, so turning nesting
+off can never strand the user behind a stock error (FR-NEST.10).
 
 ---
 
@@ -470,7 +547,7 @@ are cheap and instant. Messages use the SRS's proposed wording verbatim.
 
 ## 12. Testing strategy
 
-Anchored to SRS §9 (V-1…V-6). Determinism is within-tolerance (TS-D2), so tests compare
+Anchored to SRS §9 (V-1…V-7). Determinism is within-tolerance (TS-D2), so tests compare
 **numerically within tolerance**, not by byte-diff (which would be brittle to libm drift).
 
 | Test | Type | Verifies |
@@ -483,12 +560,21 @@ Anchored to SRS §9 (V-1…V-6). Determinism is within-tolerance (TS-D2), so tes
 | Re-fit identical params agrees **within tolerance** | unit | **V-3** (per TS-D2) |
 | Golden designs compared numerically within tolerance | golden | regression net |
 | Filenames sort to assembly order; zero-pad width | unit | FR-EXP.3 |
-| Each FR-VAL.1–.11 condition → correct tier/message | table-driven | **V-5** |
+| Each FR-VAL.1–.16 condition → correct tier/message | table-driven | **V-5** |
 | 2D inspector path === exported path for same fin | unit | **V-6**, FR-VIZ.3 |
 | family-aware panel shows exactly the family's params; Export disable logic | component | FR-IN.3, FR-UI.3 |
+| Mating bound ≥ densely-sampled true pitch | property | FR-NEST.3 (the safety property) |
+| Mating bound ≤ true pitch + 0.3 mm | property | TS-D12 tightness (slack is wasted stock) |
+| Nested parts honour clearance at every height, all 3 families | property | **V-7**, FR-NEST.3 |
+| Every fin appears exactly once across sheets ∪ unplaced | property | FR-NEST.7 |
+| Nesting needs fewer sheets than fixed-pitch placement | property | FR-NEST.3 (feature works) |
+| Placed part at identity placement === per-slat path | unit | FR-NEST.6 emitter equivalence |
+| No `transform=` inside `<g id="parts">`; path data ⊆ `M/L/C/Z` | unit | FR-NEST.6 |
+| Both label styles authored mirrored | unit | FR-NEST.9 |
 | **Carbide Create test-import** | **manual checklist** | **V-1** (can't be automated) |
+| **Carbide Create nested-sheet import** | **manual checklist** | **V-7** (can't be automated) |
 
-The pure `core/` makes all but V-1 runnable headless in CI.
+The pure `core/` makes all but V-1 and V-7 runnable headless in CI.
 
 ---
 
@@ -501,6 +587,8 @@ The pure `core/` makes all but V-1 runnable headless in CI.
 | **OI-4** | Parameter ranges (SRS §5) | Single source-of-truth table feeds UI + validation; tune from real cuts. |
 | **OI-6** | Soft-warn thresholds (N>400, segments ~50k) | Constants `FIN_WARN=400`, `SEGMENT_WARN≈50000`; tune from profiling on a typical laptop (NFR-PERF.1). |
 | new | `SEED_PER_WAVELENGTH`, `MAX_DEPTH` (§6.3) | Pick so a worst-case short-λ design stays ≤ tolerance without pathological segment counts; validate via the V-4 property test. |
+| **OI-7** | Default label style (`text` vs stroked outlines) | Decide from the V-7 import: if Carbide Create discards `<text>`, flip the `SheetConfig.labelStyle` default to `'stroke'`. |
+| new | `PROFILE_INTERVALS` (§6.6) | 2048 gives ~0.25 mm bound slack at realistic wavelengths for ~13 ms per 37 fins. Only affects tightness, never correctness — retune from profiling, not from correctness failures. |
 | new | Merged-geometry rebuild cost at high N (§8.1) | Acceptable under single-in-flight throttle; if profiling shows jank, the documented upgrade is OffscreenCanvas or partial front-edge buffer updates (post-v1). |
 
 ---
@@ -514,6 +602,7 @@ The pure `core/` makes all but V-1 runnable headless in CI.
 | Export | FR-EXP.1–.9, §1.7-A/B | §9, §6.5 **TS-D8** |
 | Worker/compute | FR-VIZ.2/.4, NFR-PERF.1–.3 | §7 (TS-D1/D9), §3.3 (TS-D7) |
 | 3D/2D/picking | FR-VIZ.1/.3/.6 | §8 (TS-D5/D6), OI-5 → §8.5 |
-| Validation | FR-VAL.1–.11, FR-UI.3 | §10 (TS-D7) |
+| Validation | FR-VAL.1–.16, FR-UI.3 | §10 (TS-D7) |
+| Nesting | FR-NEST.1–.10 | §6.6 **TS-D12**, §9 |
 | Resilience | NFR-COMPAT.1 | §7.4 (TS-D11), §8.5 |
-| Verification | V-1…V-6 | §12 |
+| Verification | V-1…V-7 | §12 |
