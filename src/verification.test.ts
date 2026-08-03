@@ -61,7 +61,11 @@ function designWithWave(wave: WaveConfig): Design {
 }
 
 // Evaluate front-edge deviation using dense resampling (50 samples per segment)
-function maxFrontEdgeError(design: Design, xCenter: number, finIndex = 0): number {
+function maxFrontEdgeError(
+  design: Design,
+  xCenter: number,
+  finIndex = 0,
+): number {
   const path = fitPath(design, xCenter, finIndex);
   const field = createWaveField(design.wave);
   let maxErr = 0;
@@ -82,7 +86,12 @@ function maxFrontEdgeError(design: Design, xCenter: number, finIndex = 0): numbe
 
 describe('8.1 – wave field unit interval', () => {
   it('diagonal field stays within [−1, 1] across a grid', () => {
-    const field = createDiagonalField({ kind: 'diagonal', theta: 47, lambda: 63, phi: 22 });
+    const field = createDiagonalField({
+      kind: 'diagonal',
+      theta: 47,
+      lambda: 63,
+      phi: 22,
+    });
 
     for (let x = -50; x <= 250; x += 17) {
       for (let y = -50; y <= 250; y += 13) {
@@ -95,7 +104,12 @@ describe('8.1 – wave field unit interval', () => {
 
   it('radial field stays within [−1, 1] across a grid', () => {
     const field = createRadialField({
-      kind: 'radial', cx: 85, cy: 70, lambda: 55, phi: 30, decay: 0.8,
+      kind: 'radial',
+      cx: 85,
+      cy: 70,
+      lambda: 55,
+      phi: 30,
+      decay: 0.8,
     });
 
     for (let x = -50; x <= 250; x += 17) {
@@ -119,7 +133,15 @@ describe('8.1 – wave field unit interval', () => {
     for (const [w0, w1] of weightSets) {
       const field = createInterferenceField([
         { type: 'diagonal', theta: 20, lambda: 70, phi: 0, weight: w0! },
-        { type: 'radial', cx: 50, cy: 60, lambda: 90, phi: 15, decay: 0.3, weight: w1! },
+        {
+          type: 'radial',
+          cx: 50,
+          cy: 60,
+          lambda: 90,
+          phi: 15,
+          decay: 0.3,
+          weight: w1!,
+        },
       ]);
 
       for (let x = 0; x <= 180; x += 30) {
@@ -168,12 +190,27 @@ describe('8.2 – protrusion bounds', () => {
 
   it('holds for radial and interference families too', () => {
     const designs: Design[] = [
-      designWithWave({ kind: 'radial', cx: 90, cy: 60, lambda: 50, phi: 0, decay: 0.5 }),
+      designWithWave({
+        kind: 'radial',
+        cx: 90,
+        cy: 60,
+        lambda: 50,
+        phi: 0,
+        decay: 0.5,
+      }),
       designWithWave({
         kind: 'interference',
         sources: [
           { type: 'diagonal', theta: 30, lambda: 65, phi: 5, weight: 2 },
-          { type: 'radial', cx: 90, cy: 60, lambda: 55, phi: 15, decay: 0.2, weight: -1 },
+          {
+            type: 'radial',
+            cx: 90,
+            cy: 60,
+            lambda: 55,
+            phi: 15,
+            decay: 0.2,
+            weight: -1,
+          },
         ],
       }),
     ];
@@ -198,11 +235,23 @@ describe('8.3 – curve-fit tolerance (dense resampling)', () => {
   it.each([
     {
       name: 'diagonal',
-      wave: { kind: 'diagonal', theta: 40, lambda: 45, phi: 12 } satisfies WaveConfig,
+      wave: {
+        kind: 'diagonal',
+        theta: 40,
+        lambda: 45,
+        phi: 12,
+      } satisfies WaveConfig,
     },
     {
       name: 'radial',
-      wave: { kind: 'radial', cx: 90, cy: 60, lambda: 50, phi: 0, decay: 0.4 } satisfies WaveConfig,
+      wave: {
+        kind: 'radial',
+        cx: 90,
+        cy: 60,
+        lambda: 50,
+        phi: 0,
+        decay: 0.4,
+      } satisfies WaveConfig,
     },
     {
       name: 'interference',
@@ -210,18 +259,30 @@ describe('8.3 – curve-fit tolerance (dense resampling)', () => {
         kind: 'interference',
         sources: [
           { type: 'diagonal', theta: 30, lambda: 65, phi: 5, weight: 1 },
-          { type: 'radial', cx: 90, cy: 60, lambda: 55, phi: 15, decay: 0.2, weight: 1 },
+          {
+            type: 'radial',
+            cx: 90,
+            cy: 60,
+            lambda: 55,
+            phi: 15,
+            decay: 0.2,
+            weight: 1,
+          },
         ],
       } satisfies WaveConfig,
     },
-  ])('$name front-edge stays within fitTolerance (50 samples/segment)', ({ wave }) => {
-    const design = designWithWave(wave);
-    const layout = computeSlatLayout(design);
-    const xCenter = layout.centerlines[Math.floor(layout.centerlines.length / 2)]!;
+  ])(
+    '$name front-edge stays within fitTolerance (50 samples/segment)',
+    ({ wave }) => {
+      const design = designWithWave(wave);
+      const layout = computeSlatLayout(design);
+      const xCenter =
+        layout.centerlines[Math.floor(layout.centerlines.length / 2)]!;
 
-    const err = maxFrontEdgeError(design, xCenter);
-    expect(err).toBeLessThanOrEqual(design.fitTolerance);
-  });
+      const err = maxFrontEdgeError(design, xCenter);
+      expect(err).toBeLessThanOrEqual(design.fitTolerance);
+    },
+  );
 });
 
 // ─── 8.4  Slat path structure: closed, line segs for back edges, cubics for front ─
@@ -294,7 +355,15 @@ describe('8.6 – deterministic re-fit', () => {
       kind: 'interference',
       sources: [
         { type: 'diagonal', theta: 25, lambda: 85, phi: 10, weight: 1.5 },
-        { type: 'radial', cx: 90, cy: 60, lambda: 60, phi: 20, decay: 0.3, weight: -0.8 },
+        {
+          type: 'radial',
+          cx: 90,
+          cy: 60,
+          lambda: 60,
+          phi: 20,
+          decay: 0.3,
+          weight: -0.8,
+        },
       ],
     });
     const xCenter = 90;
@@ -309,8 +378,12 @@ describe('8.6 – deterministic re-fit', () => {
       const a = pathA.segments[i]!;
       const b = pathB.segments[i]!;
       for (const key of ['p0', 'p1', 'p2', 'p3'] as const) {
-        expect(Math.abs(a[key].z - b[key].z)).toBeLessThanOrEqual(design.fitTolerance);
-        expect(Math.abs(a[key].y - b[key].y)).toBeLessThanOrEqual(design.fitTolerance);
+        expect(Math.abs(a[key].z - b[key].z)).toBeLessThanOrEqual(
+          design.fitTolerance,
+        );
+        expect(Math.abs(a[key].y - b[key].y)).toBeLessThanOrEqual(
+          design.fitTolerance,
+        );
       }
     }
   });
@@ -332,7 +405,8 @@ describe('8.7 – golden reference designs', () => {
       wave: { kind: 'diagonal', theta: 30, lambda: 100, phi: 0 },
     };
     const layout = computeSlatLayout(design);
-    const xCenter = layout.centerlines[Math.floor(layout.centerlines.length / 2)]!;
+    const xCenter =
+      layout.centerlines[Math.floor(layout.centerlines.length / 2)]!;
     const path = fitPath(design, xCenter, 0);
     const field = createWaveField(design.wave);
 
@@ -368,8 +442,12 @@ describe('8.7 – golden reference designs', () => {
 
     expect(geo.paths.length).toBeGreaterThan(0);
     expect(geo.totalSegments).toBeGreaterThan(0);
-    expect(geo.observedDepth.min).toBeGreaterThanOrEqual(baseDesign.pMin - baseDesign.fitTolerance);
-    expect(geo.observedDepth.max).toBeLessThanOrEqual(baseDesign.D + baseDesign.fitTolerance);
+    expect(geo.observedDepth.min).toBeGreaterThanOrEqual(
+      baseDesign.pMin - baseDesign.fitTolerance,
+    );
+    expect(geo.observedDepth.max).toBeLessThanOrEqual(
+      baseDesign.D + baseDesign.fitTolerance,
+    );
   });
 });
 
@@ -470,7 +548,11 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
   it('FR-VAL.4 (hard): slatWidth ≤ 0', () => {
     const r = validateDesign({ ...valid, slatWidth: 0 });
     expect(r.issues).toContainEqual(
-      expect.objectContaining({ code: 'FR-VAL.4', tier: 'hard', field: 'slatWidth' }),
+      expect.objectContaining({
+        code: 'FR-VAL.4',
+        tier: 'hard',
+        field: 'slatWidth',
+      }),
     );
   });
 
@@ -539,7 +621,15 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
         kind: 'interference',
         sources: [
           { type: 'diagonal', theta: 30, lambda: 100, phi: 0, weight: 0 },
-          { type: 'radial', cx: 200, cy: 150, lambda: 80, phi: 0, decay: 0, weight: 0 },
+          {
+            type: 'radial',
+            cx: 200,
+            cy: 150,
+            lambda: 80,
+            phi: 0,
+            decay: 0,
+            weight: 0,
+          },
         ],
       },
     });
@@ -573,7 +663,8 @@ describe('8.9 – validation table (FR-VAL.1–.11)', () => {
     expect(validateDesign(valid).issues).toHaveLength(0);
     // Disabling nesting must not strand the user behind a stock-sheet error.
     expect(
-      validateDesign(valid, { sheet: { ...stock, enabled: false, width: -1 } }).issues,
+      validateDesign(valid, { sheet: { ...stock, enabled: false, width: -1 } })
+        .issues,
     ).toHaveLength(0);
   });
 
@@ -688,7 +779,7 @@ describe('8.10 – inspector path equals SVG export path', () => {
 // ─── 8.11  Family-aware panel: switching families swaps params cleanly ────────
 
 describe('8.11 – wave-family switching (store level)', () => {
-  it('setWaveKind changes the wave kind and installs only that family\'s params', () => {
+  it("setWaveKind changes the wave kind and installs only that family's params", () => {
     const store = createDesignStore();
 
     store.setWaveKind('diagonal');
@@ -767,7 +858,15 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
       kind: 'interference',
       sources: [
         { type: 'diagonal', theta: 28, lambda: 260, phi: 0, weight: 1 },
-        { type: 'radial', cx: 300, cy: 250, lambda: 190, phi: 35, decay: 0.0015, weight: 0.65 },
+        {
+          type: 'radial',
+          cx: 300,
+          cy: 250,
+          lambda: 190,
+          phi: 35,
+          decay: 0.0015,
+          weight: 0.65,
+        },
       ],
     },
   };
@@ -805,7 +904,11 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
 
   it('honours the requested clearance between every neighbouring pair', () => {
     const { paths } = fitAllPaths(design);
-    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+    const nest = nestSheets(
+      computeNestMetrics(paths, design.H),
+      stock,
+      design.H,
+    );
 
     expect(nest.sheetCount).toBeGreaterThan(0);
 
@@ -823,7 +926,9 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
           const a = span(before, paths[before.finIndex] as FittedPath, y);
           const b = span(after, paths[after.finIndex] as FittedPath, y);
 
-          expect(b.left).toBeGreaterThanOrEqual(a.right + stock.clearance - 1e-9);
+          expect(b.left).toBeGreaterThanOrEqual(
+            a.right + stock.clearance - 1e-9,
+          );
         }
       }
     }
@@ -831,16 +936,26 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
 
   it('keeps every part within the sheet margins', () => {
     const { paths } = fitAllPaths(design);
-    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+    const nest = nestSheets(
+      computeNestMetrics(paths, design.H),
+      stock,
+      design.H,
+    );
 
     for (const sheet of nest.sheets) {
       for (const placement of sheet.placements) {
         for (let step = 0; step <= 200; step += 1) {
           const y = placement.y + (step / 200) * design.H;
-          const extent = span(placement, paths[placement.finIndex] as FittedPath, y);
+          const extent = span(
+            placement,
+            paths[placement.finIndex] as FittedPath,
+            y,
+          );
 
           expect(extent.left).toBeGreaterThanOrEqual(stock.margin - 1e-9);
-          expect(extent.right).toBeLessThanOrEqual(stock.width - stock.margin + 1e-9);
+          expect(extent.right).toBeLessThanOrEqual(
+            stock.width - stock.margin + 1e-9,
+          );
         }
       }
     }
@@ -850,7 +965,11 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
 
   it('9.2 – declares physical millimetres with a matching viewBox and a stock outline', () => {
     const { paths } = fitAllPaths(design);
-    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+    const nest = nestSheets(
+      computeNestMetrics(paths, design.H),
+      stock,
+      design.H,
+    );
     const svgs = sheetSvgs(nest, paths, {
       sheet: stock,
       height: design.H,
@@ -889,10 +1008,15 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
 
   it('9.4 – nesting needs fewer sheets than naive fixed-pitch placement', () => {
     const { paths } = fitAllPaths(design);
-    const nest = nestSheets(computeNestMetrics(paths, design.H), stock, design.H);
+    const nest = nestSheets(
+      computeNestMetrics(paths, design.H),
+      stock,
+      design.H,
+    );
 
     const perRow = Math.floor(
-      (stock.width - 2 * stock.margin + stock.clearance) / (design.D + stock.clearance),
+      (stock.width - 2 * stock.margin + stock.clearance) /
+        (design.D + stock.clearance),
     );
 
     expect(nest.sheetCount).toBeLessThan(
@@ -909,7 +1033,11 @@ describe('9.1 – nested parts never overlap and stay inside the sheet', () => {
     // Same FittedPath, same process — this locks the two emitters together the
     // way 8.10 locks the inspector to the export.
     expect(
-      placedPathData(path, { finIndex: 0, x: 0, y: 0, rotation: 0, row: 0 }, design.H),
+      placedPathData(
+        path,
+        { finIndex: 0, x: 0, y: 0, rotation: 0, row: 0 },
+        design.H,
+      ),
     ).toBe(slatPathData(path));
   });
 });

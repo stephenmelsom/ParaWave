@@ -1,3 +1,4 @@
+import { DEFAULT_POST_ID } from '../core/cam/post';
 import { nestSheets } from '../core/nest/pack';
 import type { NestResult } from '../core/nest/pack';
 import { computeReadouts } from '../core/readouts';
@@ -7,6 +8,8 @@ import type {
   DiagonalSource,
   DiagonalWaveConfig,
   LabelStyle,
+  MachineConfig,
+  MillingDirection,
   RadialSource,
   RadialWaveConfig,
   SheetConfig,
@@ -14,7 +17,7 @@ import type {
   Unit,
   WaveConfig,
 } from '../core/types';
-import { validateDesign } from '../core/validation';
+import { blocksGeometry, validateDesign } from '../core/validation';
 
 export const MAX_INTERFERENCE_SOURCES = 8;
 
@@ -28,13 +31,44 @@ export const DESIGN_NUMBER_FIELDS = [
   'fitTolerance',
 ] as const;
 
-export const SHEET_NUMBER_FIELDS = ['width', 'height', 'margin', 'clearance'] as const;
+export const SHEET_NUMBER_FIELDS = [
+  'width',
+  'height',
+  'margin',
+  'clearance',
+] as const;
+
+export const MACHINE_NUMBER_FIELDS = [
+  'toolNumber',
+  'toolDiameter',
+  'spindleRpm',
+  'feedRate',
+  'plungeRate',
+  'depthPerPass',
+  'throughAllowance',
+  'retractHeight',
+  'tabCount',
+  'tabWidth',
+  'tabHeight',
+  'engraveToolNumber',
+  'engraveDiameter',
+  'engraveDepth',
+  'engraveFeed',
+  'engraveRpm',
+] as const;
+
+export const MACHINE_FLAG_FIELDS = ['enabled', 'engraveLabels'] as const;
 
 export type SheetNumberField = (typeof SHEET_NUMBER_FIELDS)[number];
+export type MachineNumberField = (typeof MACHINE_NUMBER_FIELDS)[number];
+export type MachineFlagField = (typeof MACHINE_FLAG_FIELDS)[number];
 export type DesignNumberField = (typeof DESIGN_NUMBER_FIELDS)[number];
 export type DiagonalParam = Exclude<keyof DiagonalWaveConfig, 'kind'>;
 export type RadialParam = Exclude<keyof RadialWaveConfig, 'kind'>;
-export type DiagonalSourceParam = Exclude<keyof DiagonalSource, 'type' | 'weight'>;
+export type DiagonalSourceParam = Exclude<
+  keyof DiagonalSource,
+  'type' | 'weight'
+>;
 export type RadialSourceParam = Exclude<keyof RadialSource, 'type' | 'weight'>;
 
 function createDiagonalWave(): DiagonalWaveConfig {
@@ -82,9 +116,7 @@ function createRadialSource(
   };
 }
 
-function createInterferenceWave(
-  design: Pick<Design, 'W' | 'H'>,
-): WaveConfig {
+function createInterferenceWave(design: Pick<Design, 'W' | 'H'>): WaveConfig {
   return {
     kind: 'interference',
     sources: [createDiagonalSource(), createRadialSource(design)],
@@ -123,12 +155,45 @@ export function createDefaultSheet(): SheetConfig {
   };
 }
 
+/**
+ * Cutting defaults for a 1/8" flat end mill in 18 mm ply.
+ *
+ * The tool diameter is 3.175 mm rather than a 1/4" bit on purpose: the default
+ * clearance is 6 mm, and FR-VAL.17 blocks export when clearance is under the
+ * tool diameter, so a 6.35 mm default would hard-block out of the box.
+ */
+export function createDefaultMachine(): MachineConfig {
+  return {
+    enabled: false,
+    post: DEFAULT_POST_ID,
+    millingDirection: 'climb',
+    toolNumber: 1,
+    toolDiameter: 3.175,
+    spindleRpm: 18000,
+    feedRate: 2000,
+    plungeRate: 500,
+    depthPerPass: 3,
+    throughAllowance: 0.5,
+    retractHeight: 5,
+    tabCount: 4,
+    tabWidth: 8,
+    tabHeight: 3,
+    engraveLabels: true,
+    engraveToolNumber: 1,
+    engraveDiameter: 3.175,
+    engraveDepth: 0.6,
+    engraveFeed: 1500,
+    engraveRpm: 18000,
+  };
+}
+
 export class DesignStore {
   design = $state<Design>(createLandingDesign());
   // Machine/stock configuration deliberately kept off `Design`: the recompute
   // effect subscribes by deep-reading a design snapshot, so a field here would
   // re-fit every path on every sheet-slider tick.
   sheet = $state<SheetConfig>(createDefaultSheet());
+  machine = $state<MachineConfig>(createDefaultMachine());
   computeResult = $state<ComputeResult | null>(null);
 
   readouts = $derived(computeReadouts(this.design));
@@ -143,11 +208,16 @@ export class DesignStore {
       ? nestSheets(this.computeResult.nest, this.sheet, this.design.H)
       : null,
   );
-  cheapValidation = $derived(validateDesign(this.design, { sheet: this.sheet }));
+  cheapValidation = $derived(
+    validateDesign(this.design, { sheet: this.sheet, machine: this.machine }),
+  );
   validation = $derived(
     validateDesign(this.design, {
       sheet: this.sheet,
-      ...(this.computeResult ? { totalSegments: this.computeResult.totalSegments } : {}),
+      machine: this.machine,
+      ...(this.computeResult
+        ? { totalSegments: this.computeResult.totalSegments }
+        : {}),
       ...(this.nest
         ? {
             nest: {
@@ -159,7 +229,11 @@ export class DesignStore {
     }),
   );
   exportEnabled = $derived(this.cheapValidation.exportEnabled);
-  canComputeGeometry = $derived(this.cheapValidation.hardBlocks.length === 0);
+  // Machine settings cannot move a single control point, so a cutting-parameter
+  // mistake blocks export but leaves the preview running.
+  canComputeGeometry = $derived(
+    !this.cheapValidation.hardBlocks.some(blocksGeometry),
+  );
   actualDepthRange = $derived(this.computeResult?.observedDepth ?? null);
   totalSegments = $derived(this.computeResult?.totalSegments ?? 0);
   // cheapValidation tracks lambda/weight/kind but not theta/phi/cx/cy/decay.
@@ -316,6 +390,22 @@ export class DesignStore {
     this.sheet.labelStyle = style;
   }
 
+  setMachineNumber(field: MachineNumberField, value: number): void {
+    this.machine[field] = value;
+  }
+
+  setMachineFlag(field: MachineFlagField, value: boolean): void {
+    this.machine[field] = value;
+  }
+
+  setMachinePost(post: string): void {
+    this.machine.post = post;
+  }
+
+  setMillingDirection(direction: MillingDirection): void {
+    this.machine.millingDirection = direction;
+  }
+
   setComputeResult(result: ComputeResult): void {
     this.computeResult = result;
   }
@@ -328,9 +418,14 @@ export class DesignStore {
     return $state.snapshot(this.sheet) as SheetConfig;
   }
 
+  machineSnapshot(): MachineConfig {
+    return $state.snapshot(this.machine) as MachineConfig;
+  }
+
   reset(): void {
     this.design = createLandingDesign();
     this.sheet = createDefaultSheet();
+    this.machine = createDefaultMachine();
     this.computeResult = null;
   }
 

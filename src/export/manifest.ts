@@ -2,7 +2,7 @@ import packageMetadata from '../../package.json';
 
 import { cloneDesign } from '../core/clone';
 import type { NestResult } from '../core/nest/pack';
-import type { Design, SheetConfig, Unit } from '../core/types';
+import type { Design, MachineConfig, SheetConfig, Unit } from '../core/types';
 
 export const MANIFEST_FILENAME = 'parawave-design.json';
 export const APP_VERSION = packageMetadata.version;
@@ -16,7 +16,7 @@ export interface ManifestNesting {
 }
 
 export interface ParaWaveManifest {
-  schemaVersion: 2;
+  schemaVersion: 3;
   app: {
     name: 'ParaWave';
     version: string;
@@ -37,6 +37,11 @@ export interface ParaWaveManifest {
    * the same design can be cut on different machines.
    */
   stock: SheetConfig | null;
+  /**
+   * Cutting parameters the g-code was generated with. Null when g-code was not
+   * exported. Also a sibling of `design` — same design, different machines.
+   */
+  machine: MachineConfig | null;
   design: Design;
 }
 
@@ -44,6 +49,7 @@ export interface CreateManifestOptions {
   appVersion?: string;
   exportedAt?: Date | string;
   stock?: SheetConfig | null;
+  machine?: MachineConfig | null;
   nest?: NestResult | null;
 }
 
@@ -67,7 +73,7 @@ export function createDesignManifest(
   const nest = options.nest;
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     app: {
       name: 'ParaWave',
       version: options.appVersion ?? APP_VERSION,
@@ -91,6 +97,7 @@ export function createDesignManifest(
         : null,
     },
     stock: options.stock ? { ...options.stock } : null,
+    machine: options.machine ? { ...options.machine } : null,
     design: cloneDesign(design),
   };
 }

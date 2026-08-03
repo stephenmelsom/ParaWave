@@ -41,9 +41,13 @@
   $: lowerDepth = firstSegment?.p0.z ?? 0;
   $: upperDepth = lastSegment?.p3.z ?? 0;
   $: padWidth = Math.max(3, String(Math.max(totalFins, 1)).length);
-  $: selectedLabel = String(Math.min(selectedFinIndex + 1, Math.max(totalFins, 1))).padStart(padWidth, '0');
+  $: selectedLabel = String(
+    Math.min(selectedFinIndex + 1, Math.max(totalFins, 1)),
+  ).padStart(padWidth, '0');
   $: totalLabel = String(Math.max(totalFins, 0)).padStart(padWidth, '0');
-  $: centerlineLabel = path ? formatMeasurement(path.xCenter, design.displayUnit) : '-';
+  $: centerlineLabel = path
+    ? formatMeasurement(path.xCenter, design.displayUnit)
+    : '-';
   $: rangeLabel = `${formatMeasurement(depthRange.min, design.displayUnit)} - ${formatMeasurement(depthRange.max, design.displayUnit)}`;
 </script>
 
@@ -67,21 +71,54 @@
 
   <div class="drawing">
     {#if path}
-      <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} role="img" aria-label={`Measured profile for fin ${selectedLabel}`}>
+      <svg
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        role="img"
+        aria-label={`Measured profile for fin ${selectedLabel}`}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stop-color="var(--wave-shadow)" stop-opacity="0.18" />
-            <stop offset="58%" stop-color="var(--wave-mid)" stop-opacity="0.34" />
-            <stop offset="100%" stop-color="var(--wave-highlight)" stop-opacity="0.46" />
+            <stop
+              offset="0%"
+              stop-color="var(--wave-shadow)"
+              stop-opacity="0.18"
+            />
+            <stop
+              offset="58%"
+              stop-color="var(--wave-mid)"
+              stop-opacity="0.34"
+            />
+            <stop
+              offset="100%"
+              stop-color="var(--wave-highlight)"
+              stop-opacity="0.46"
+            />
           </linearGradient>
         </defs>
 
-        <line class="axis axis-depth" x1={originX} y1={originY} x2={originX + plotWidth} y2={originY} />
-        <line class="axis axis-height" x1={originX} y1={originY} x2={originX} y2={originY - plotHeight} />
+        <line
+          class="axis axis-depth"
+          x1={originX}
+          y1={originY}
+          x2={originX + plotWidth}
+          y2={originY}
+        />
+        <line
+          class="axis axis-height"
+          x1={originX}
+          y1={originY}
+          x2={originX}
+          y2={originY - plotHeight}
+        />
 
         {#each depthTicks as tick (tick)}
           <g class="tick">
-            <line x1={originX + tick * scaleX} y1={originY} x2={originX + tick * scaleX} y2={originY + 6} />
+            <line
+              x1={originX + tick * scaleX}
+              y1={originY}
+              x2={originX + tick * scaleX}
+              y2={originY + 6}
+            />
             <text x={originX + tick * scaleX} y={originY + 20}>
               {formatMeasurement(tick, design.displayUnit, {
                 decimals: design.displayUnit === 'mm' ? 1 : 2,
@@ -94,7 +131,12 @@
 
         {#each heightTicks as tick (tick)}
           <g class="tick tick-height">
-            <line x1={originX - 6} y1={originY - tick * scaleY} x2={originX} y2={originY - tick * scaleY} />
+            <line
+              x1={originX - 6}
+              y1={originY - tick * scaleY}
+              x2={originX}
+              y2={originY - tick * scaleY}
+            />
             <text x={originX - 10} y={originY - tick * scaleY + 4}>
               {formatMeasurement(tick, design.displayUnit, {
                 decimals: design.displayUnit === 'mm' ? 0 : 2,
@@ -105,11 +147,19 @@
           </g>
         {/each}
 
-        <g transform={`translate(${originX} ${originY}) scale(${scaleX} ${-scaleY})`}>
+        <g
+          transform={`translate(${originX} ${originY}) scale(${scaleX} ${-scaleY})`}
+        >
           <path class="profile-fill" d={pathData} />
           <line class="datum" x1="0" y1="0" x2="0" y2={safeHeight} />
           <line class="cap" x1="0" y1="0" x2={lowerDepth} y2="0" />
-          <line class="cap" x1="0" y1={safeHeight} x2={upperDepth} y2={safeHeight} />
+          <line
+            class="cap"
+            x1="0"
+            y1={safeHeight}
+            x2={upperDepth}
+            y2={safeHeight}
+          />
           <path class="profile-stroke" d={pathData} />
         </g>
       </svg>
@@ -136,7 +186,7 @@
 
   h2,
   .eyebrow {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .eyebrow,
@@ -183,7 +233,9 @@
     margin: 0;
     color: var(--gold-bright);
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
+    /* Break between the parts of a range, never inside a measurement:
+       `anywhere` would set `26.9011 mm` one glyph per line. */
+    overflow-wrap: break-word;
   }
 
   .drawing {

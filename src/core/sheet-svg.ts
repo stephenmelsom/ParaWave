@@ -32,7 +32,7 @@ export function partLabel(finIndex: number, finCount: number): string {
  * winding is preserved and an outside-contour offset behaves exactly as it does
  * for the per-slat files.
  */
-function place(
+export function placePoint(
   placement: NestPlacement,
   height: number,
   z: number,
@@ -62,13 +62,13 @@ export function placedPathData(
   const last = path.segments.at(-1);
 
   if (!first || !last) {
-    const origin = place(placement, height, 0, 0);
+    const origin = placePoint(placement, height, 0, 0);
 
     return `M ${formatCoordinate(origin.x)} ${formatCoordinate(origin.y)} Z`;
   }
 
   const point = (z: number, y: number): string => {
-    const mapped = place(placement, height, z, y);
+    const mapped = placePoint(placement, height, z, y);
 
     return `${formatCoordinate(mapped.x)} ${formatCoordinate(mapped.y)}`;
   };
@@ -149,27 +149,35 @@ const DIGIT_SEGMENTS: Record<string, string[]> = {
   '9': ['a', 'b', 'c', 'd', 'f', 'g'],
 };
 
+/** One stroke of a seven-segment glyph, in sheet coordinates. */
+export interface LabelStroke {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 /**
- * Label glyphs as stroked paths rather than `<text>`.
+ * Seven-segment glyph strokes for a label, centred on a sheet-space point.
  *
- * Carbide Create's SVG importer discards text elements, so `labelStyle:
- * 'stroke'` renders digits as ordinary vectors that import cleanly and can
- * drive an engrave toolpath.
+ * Shared by the SVG export and the g-code engrave toolpath so both draw exactly
+ * the same glyphs in exactly the same place.
  */
-export function strokeLabelPathData(
+export function labelStrokeSegments(
   label: string,
   centerX: number,
   centerY: number,
   size: number,
-): string[] {
+): LabelStroke[] {
   const advance = 0.8 * size;
   const totalWidth = label.length * advance - 0.2 * size;
   const startX = centerX - totalWidth / 2;
   // The document is authored Y-down and the CAM tool flips it, so glyph "up"
   // is *increasing* y here: the digits look mirrored in a plain SVG viewer and
-  // read upright once imported. This matches the `<text>` style's mirror.
+  // read upright once imported. This matches the `<text>` style's mirror, and
+  // the g-code export's Y-flip into machine space undoes it the same way.
   const baselineY = centerY - size / 2;
-  const paths: string[] = [];
+  const strokes: LabelStroke[] = [];
 
   label.split('').forEach((character, index) => {
     const originX = startX + index * advance;
@@ -183,20 +191,70 @@ export function strokeLabelPathData(
 
       const [x1, y1, x2, y2] = stroke;
 
-      paths.push(
-        [
-          'M',
-          formatCoordinate(originX + x1 * size),
-          formatCoordinate(baselineY + y1 * size),
-          'L',
-          formatCoordinate(originX + x2 * size),
-          formatCoordinate(baselineY + y2 * size),
-        ].join(' '),
-      );
+      strokes.push({
+        x1: originX + x1 * size,
+        y1: baselineY + y1 * size,
+        x2: originX + x2 * size,
+        y2: baselineY + y2 * size,
+      });
     }
   });
 
-  return paths;
+  return strokes;
+}
+
+/**
+ * Label glyphs as stroked paths rather than `<text>`.
+ *
+ * Carbide Create's SVG importer discards text elements, so `labelStyle:
+ * 'stroke'` renders digits as ordinary vectors that import cleanly and can
+ * drive an engrave toolpath.
+ */
+export function strokeLabelPathData(
+  label: string,
+  centerX: number,
+  centerY: number,
+  size: number,
+): string[] {
+  return labelStrokeSegments(label, centerX, centerY, size).map((stroke) =>
+    [
+      'M',
+      formatCoordinate(stroke.x1),
+      formatCoordinate(stroke.y1),
+      'L',
+      formatCoordinate(stroke.x2),
+      formatCoordinate(stroke.y2),
+    ].join(' '),
+  );
+}
+
+/** Where a part's label sits on the sheet, and how big it is. */
+export interface LabelLayout {
+  x: number;
+  y: number;
+  size: number;
+}
+
+/**
+ * Position and size the label for one placed part.
+ *
+ * Shared by the SVG and g-code emitters so a label engraved by the machine
+ * lands exactly where the sheet drawing says it will.
+ */
+export function labelLayout(
+  path: FittedPath,
+  placement: NestPlacement,
+  height: number,
+  characters: number,
+): LabelLayout {
+  const anchor = labelAnchor(path, height);
+  const mapped = placePoint(placement, height, anchor.z, anchor.y);
+
+  return {
+    x: mapped.x,
+    y: mapped.y,
+    size: labelSize(anchor.width, characters),
+  };
 }
 
 function labelsGroup(
@@ -221,14 +279,19 @@ function labelsGroup(
     }
 
     const label = partLabel(placement.finIndex, context.finCount);
-    const anchor = labelAnchor(path, context.height);
-    const mapped = place(placement, context.height, anchor.z, anchor.y);
-    const size = labelSize(anchor.width, label.length);
+    const { x, y, size } = labelLayout(
+      path,
+      placement,
+      context.height,
+      label.length,
+    );
+    const mapped = { x, y };
 
     if (style === 'stroke') {
       strokeLines.push(
         ...strokeLabelPathData(label, mapped.x, mapped.y, size).map(
-          (d) => `    <path d="${d}" fill="none" stroke="black" stroke-width="0.01"/>`,
+          (d) =>
+            `    <path d="${d}" fill="none" stroke="black" stroke-width="0.01"/>`,
         ),
       );
       continue;
@@ -317,5 +380,7 @@ export function sheetSvgs(
   paths: readonly FittedPath[],
   context: SheetSvgContext,
 ): string[] {
-  return nest.sheets.map((sheet) => sheetSvg(sheet, paths, context, nest.sheetCount));
+  return nest.sheets.map((sheet) =>
+    sheetSvg(sheet, paths, context, nest.sheetCount),
+  );
 }

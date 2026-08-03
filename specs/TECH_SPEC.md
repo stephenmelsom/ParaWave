@@ -37,6 +37,8 @@ the point of use, mirroring the SRS's own §1.7 override pattern:
 | **TS-D2** | Determinism is **within fit tolerance**, not byte-identical (libm `sin/cos/exp` aren't bit-stable across engines). | **FR-EXP.7**, **V-3** |
 | **TS-D8** | Exported SVG geometry is **always authored in mm** (`viewBox` 1u = 1 mm); the inch toggle is display-only. | Resolves the **§1.7-A vs FR-EXP.9** tension toward mm |
 | **TS-D12** | Nesting splits into Worker-side geometry metrics + main-thread packing; `SheetConfig` lives beside `Design`, not inside it. | Refines **FR-NEST.1–.4** (§6.6) |
+| **TS-D13** | Outside-contour offsetting is an exact, dependency-free construction that exploits the slat's graph structure — not a polygon-clipping library and not sampling. | Refines **FR-CAM.3** (§6.7) |
+| **TS-D14** | G-code is generated on the **main thread at export time only**; there is no toolpath preview and no worker-protocol change. | Refines **FR-CAM.1–.2** (§6.7) |
 
 All other decisions in this document refine, but do not contradict, the SRS.
 
@@ -141,10 +143,17 @@ src/
     nest/
       profile.ts             #   FR-NEST.3: exact monotone edge profiles + mating bound (TS-D12)
       pack.ts                #   FR-NEST.3/.4: 0°/180° row packing over NestMetrics
+    cam/
+      geom.ts                #   planar helpers: winding, arc length, distances
+      offset.ts              #   FR-CAM.3: exact outside offset, window-pruned loops (TS-D13)
+      tabs.ts                #   FR-CAM.6: arc-length tab spans + ramped depth profile
+      toolpath.ts            #   FR-CAM.4/.5/.7: sheet geometry → machine-space op list
+      program.ts             #   the op IR and the PostProcessor contract
+      post/onefinity.ts      #   FR-CAM.8: Onefinity/Buildbotics dialect
     svg.ts                   # FR-EXP.1/.2/.9: closed path, mm, 4dp, Y-down (TS-D8)
     sheet-svg.ts             # FR-NEST.5/.6/.9: nested sheet, baked transforms, labels
     units.ts                 # FR-IN.2: canonical mm ↔ display formatting
-    validation.ts            # FR-VAL.1–.16: pure predicates → typed issues
+    validation.ts            # FR-VAL.1–.20: pure predicates → typed issues
     readouts.ts              # FR-IN.4 cheap derived (N, spans, margins, stock)
     types.ts                 # Design, WaveConfig, FittedPath, ComputeRequest/Result
     mesh.ts                  # builds merged vertex/index buffers + range table from paths
@@ -166,9 +175,10 @@ src/
   state/
     design.svelte.ts         # the Design store (runes) + computed cheap-derived & validation
   export/
-    zip.ts                   # jszip bundle, zero-padded names (FR-EXP.3), sheets/ + slats/
+    zip.ts                   # jszip bundle, zero-padded names (FR-EXP.3), sheets/ + gcode/ + slats/
     cutlist.ts               # cutlist.csv (FR-NEST.7)
-    manifest.ts              # parawave-design.json (FR-EXP.8)
+    gcode.ts                 # gcode/sheet_NNN.nc, one per sheet (FR-CAM.2)
+    manifest.ts              # parawave-design.json (FR-EXP.8, FR-CAM.9)
   main.ts
 ```
 
@@ -403,6 +413,63 @@ nested transforms (FR-NEST.6). Labels are authored **mirrored** — the document
 Carbide flips it wholesale (§1.7-B), so a label that reads upright in a browser would be
 engraved upside-down.
 
+### 6.7 CAM and g-code (`core/cam/`) — TS-D13, TS-D14
+
+Three layers, kept apart so a second controller costs one file: `offset.ts` (pure geometry,
+slat-local frame) → `toolpath.ts` (offset contours + tabs + labels → a machine-space operation
+list) → `post/` (operation list → g-code text). All of it lives under `core/`, which stays
+dependency-free; nothing touches the worker protocol.
+
+> **TS-D13 (exact offsetting without a clipping library).**
+>
+> A slat is the region under a graph, `R = { (x,y) : 0 ≤ y ≤ H, 0 ≤ x ≤ f(y) }` — the same
+> structure `matingBound()` exploits. Two consequences make an exact offset practical without
+> pulling a polygon-clipping dependency into `core/`, and without resorting to sampling:
+>
+> **(a) Loop pruning is cheap.** The raw offset of a polygon self-intersects wherever the
+> boundary curves tighter than the tool radius. The textbook fix — discard candidates nearer
+> than the radius to the original boundary — is naively quadratic. But distance is at least
+> `|Δy|`, so only boundary edges within a y-window of ±radius can possibly be closer. Because
+> `f` is a graph, the front edge is sorted in y and that window is a binary search: the prune
+> is `O(log n + window)` per candidate. Measured at 166 fins in ~34 ms.
+>
+> **(b) Candidates never fall inside the part.** Moving outward from the front edge always
+> increases x and the region is bounded above by `f`; moving outward from the back edge always
+> takes x below zero. Neither can re-enter. The one exception — a corner arc on a very steep
+> front edge — is caught by an explicit inside test, itself a single graph lookup.
+>
+> Reflex corners are **mitered**, not left as two overlapping endpoints. This matters: the
+> naive form leaves a sub-tolerance zigzag at every reflex vertex, which reads as a
+> self-intersection to anything downstream that checks.
+>
+> Offsetting commutes with placement, because `placePoint` is a rigid motion (a translation,
+> or a 180° rotation of determinant +1 — TS-D12c). A contour is therefore offset once per fin
+> index in the slat-local frame and the result is placed, never re-offset per placement.
+
+> **TS-D14 (main thread, at export time only).**
+>
+> Offsetting is far too expensive for the synchronous derived tier that TS-D7 protects, but it
+> sits comfortably inside the already-`await`ed export path, which shows a busy state. So
+> g-code is generated only when the user exports, on the main thread, from the same
+> `computeExportGeometry` result the SVGs use. Consequences: no toolpath preview in v1, no
+> change to `ComputeRequest`/`ComputeResult`, and no second fidelity path to keep in sync. If
+> it ever becomes slow enough to matter, moving it into the export worker is self-contained.
+
+**Coordinate frames.** Sheet coordinates *are* machine coordinates (FR-CAM.4) — the mapping is
+the identity, which is not a missing flip. `placePoint` maps a slat's local y (zero at the
+bottom of the wall) to an increasing sheet y; the sheet is then rendered Y-down, which is why a
+slat looks upside-down in a browser, and a CAM tool reading that same y as a Y-up workspace
+coordinate is what stands it back up (§1.7-B). Machine space is Y-up, so taking sheet y as
+machine Y does the same thing. The mirrored label glyphs unmirror by the same mechanism —
+introducing a flip here to "fix" them would mirror every part top-to-bottom.
+
+**Corollary — clearance becomes a constraint.** Nesting places flat back edges exactly
+`clearance` apart, mating wavy edges a `clearance` past their mating bound, and rows a
+`clearance` apart, so the closest approach is always `clearance`. Two contours each offset
+outward by a tool radius therefore collide as soon as `clearance < 2r`, which is FR-VAL.17.
+Each part gets its own closed contour, so the corridor between adjacent parts is cut twice —
+correct but not optimal; cutting it once is deliberate future work, not a defect.
+
 ---
 
 ## 7. Web Worker pipeline
@@ -560,7 +627,7 @@ Anchored to SRS §9 (V-1…V-7). Determinism is within-tolerance (TS-D2), so tes
 | Re-fit identical params agrees **within tolerance** | unit | **V-3** (per TS-D2) |
 | Golden designs compared numerically within tolerance | golden | regression net |
 | Filenames sort to assembly order; zero-pad width | unit | FR-EXP.3 |
-| Each FR-VAL.1–.16 condition → correct tier/message | table-driven | **V-5** |
+| Each FR-VAL.1–.20 condition → correct tier/message | table-driven | **V-5** |
 | 2D inspector path === exported path for same fin | unit | **V-6**, FR-VIZ.3 |
 | family-aware panel shows exactly the family's params; Export disable logic | component | FR-IN.3, FR-UI.3 |
 | Mating bound ≥ densely-sampled true pitch | property | FR-NEST.3 (the safety property) |
@@ -571,10 +638,24 @@ Anchored to SRS §9 (V-1…V-7). Determinism is within-tolerance (TS-D2), so tes
 | Placed part at identity placement === per-slat path | unit | FR-NEST.6 emitter equivalence |
 | No `transform=` inside `<g id="parts">`; path data ⊆ `M/L/C/Z` | unit | FR-NEST.6 |
 | Both label styles authored mirrored | unit | FR-NEST.9 |
+| Offset contour lies on the tool-radius locus, never nearer, never farther | property | **V-8**, FR-CAM.3 |
+| Offset of a λ=45 mm sawtooth at 3 mm radius has zero self-intersections | property | **V-8**, FR-CAM.3 (the loop-pruning property) |
+| `offset(place(p)) === place(offset(p))` | property | TS-D13 (offsetting commutes with placement) |
+| Tabs even by arc length, ramped not stepped, clear of the plunge point | property | FR-CAM.6 |
+| Depth passes reach the cut depth in equal steps, none over the maximum | unit | FR-CAM.5 |
+| All engraving precedes all cutting | unit | FR-CAM.7 |
+| No XY rapid below retract; no move past cut depth | property | FR-CAM.10 |
+| Machine coordinates equal sheet coordinates for a placed part | unit | FR-CAM.4 (catches a stray Y flip) |
+| Glyph tops sit above glyph bottoms in machine Y | unit | FR-CAM.7 (labels engrave upright) |
+| Modal suppression; `G53 G0 Z-5`; `M6`; `M03`+`G4 P8`; `M05`/`M02` | unit | FR-CAM.8 (post fidelity) |
+| A deferred retract emits only after the XY travel off safe Z | unit | FR-CAM.10 |
+| `gcode/` count and indices match `sheets/` | unit | FR-CAM.2 |
+| Machine-only blocks disable export but not geometry | unit | FR-VAL.17–.20 scope |
 | **Carbide Create test-import** | **manual checklist** | **V-1** (can't be automated) |
 | **Carbide Create nested-sheet import** | **manual checklist** | **V-7** (can't be automated) |
+| **Simulator review + machine dry run** | **manual checklist** | **V-8** manual half (can't be automated) |
 
-The pure `core/` makes all but V-1 and V-7 runnable headless in CI.
+The pure `core/` makes all but V-1, V-7 and V-8's manual half runnable headless in CI.
 
 ---
 
@@ -602,7 +683,8 @@ The pure `core/` makes all but V-1 and V-7 runnable headless in CI.
 | Export | FR-EXP.1–.9, §1.7-A/B | §9, §6.5 **TS-D8** |
 | Worker/compute | FR-VIZ.2/.4, NFR-PERF.1–.3 | §7 (TS-D1/D9), §3.3 (TS-D7) |
 | 3D/2D/picking | FR-VIZ.1/.3/.6 | §8 (TS-D5/D6), OI-5 → §8.5 |
-| Validation | FR-VAL.1–.16, FR-UI.3 | §10 (TS-D7) |
+| Validation | FR-VAL.1–.20, FR-UI.3 | §10 (TS-D7) |
 | Nesting | FR-NEST.1–.10 | §6.6 **TS-D12**, §9 |
+| CAM / g-code | FR-CAM.1–.10, FR-VAL.17–.20 | §6.7 **TS-D13/D14**, §9 |
 | Resilience | NFR-COMPAT.1 | §7.4 (TS-D11), §8.5 |
-| Verification | V-1…V-7 | §12 |
+| Verification | V-1…V-8 | §12 |

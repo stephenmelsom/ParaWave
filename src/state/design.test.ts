@@ -79,7 +79,9 @@ describe('design store', () => {
 
     store.removeInterferenceSource(0);
 
-    expect(store.design.wave.sources).toHaveLength(MAX_INTERFERENCE_SOURCES - 1);
+    expect(store.design.wave.sources).toHaveLength(
+      MAX_INTERFERENCE_SOURCES - 1,
+    );
   });
 });
 

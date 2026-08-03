@@ -62,7 +62,7 @@ describe('export manifest', () => {
     const manifest = createDesignManifest(design, 37, { exportedAt });
 
     expect(manifest).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       app: {
         name: 'ParaWave',
         version: APP_VERSION,
@@ -77,6 +77,7 @@ describe('export manifest', () => {
         finCount: 37,
         nesting: null,
       },
+      machine: null,
       stock: null,
       design,
     });
@@ -138,8 +139,12 @@ describe('zip export', () => {
       'slats/slat_003.svg',
       MANIFEST_FILENAME,
     ]);
-    expect(await archive.file('slats/slat_001.svg')?.async('string')).toBe(svgs[0]);
-    expect(await archive.file('slats/slat_003.svg')?.async('string')).toBe(svgs[2]);
+    expect(await archive.file('slats/slat_001.svg')?.async('string')).toBe(
+      svgs[0],
+    );
+    expect(await archive.file('slats/slat_003.svg')?.async('string')).toBe(
+      svgs[2],
+    );
     expect(
       JSON.parse(
         (await archive.file(MANIFEST_FILENAME)?.async('string')) ?? '{}',

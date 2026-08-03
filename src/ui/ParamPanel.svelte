@@ -4,14 +4,21 @@
     parseFromDisplay,
     toDisplayValue,
   } from '../core/units';
+  import { POST_PROCESSORS } from '../core/cam/post';
   import type { ValidationIssue } from '../core/validation';
-  import type { LabelStyle, Source, WaveConfig } from '../core/types';
+  import type {
+    LabelStyle,
+    MillingDirection,
+    Source,
+    WaveConfig,
+  } from '../core/types';
   import {
     MAX_INTERFERENCE_SOURCES,
     type DesignNumberField,
     type DesignStore,
     type DiagonalParam,
     type DiagonalSourceParam,
+    type MachineNumberField,
     type RadialParam,
     type RadialSourceParam,
     type SheetNumberField,
@@ -47,6 +54,24 @@
     max: number;
     step: number;
     decimals: number;
+  }
+
+  /**
+   * `length` and `rate` are millimetre-based and follow the display unit; a
+   * `count` is a plain number (a tool slot, an rpm, a tab count) and never
+   * converts.
+   */
+  type MachineKind = 'length' | 'rate' | 'count';
+
+  interface MachineControl {
+    field: MachineNumberField;
+    label: string;
+    kind: MachineKind;
+    min: number;
+    max: number;
+    step: number;
+    decimals: number;
+    unit?: string;
   }
 
   let { store }: Props = $props();
@@ -150,9 +175,30 @@
   ];
 
   const sheetControls: SheetControl[] = [
-    { field: 'width', label: 'sheet width', min: 100, max: 3000, step: 1, decimals: 2 },
-    { field: 'height', label: 'sheet height', min: 100, max: 3000, step: 1, decimals: 2 },
-    { field: 'margin', label: 'edge margin', min: 0, max: 50, step: 0.5, decimals: 2 },
+    {
+      field: 'width',
+      label: 'sheet width',
+      min: 100,
+      max: 3000,
+      step: 1,
+      decimals: 2,
+    },
+    {
+      field: 'height',
+      label: 'sheet height',
+      min: 100,
+      max: 3000,
+      step: 1,
+      decimals: 2,
+    },
+    {
+      field: 'margin',
+      label: 'edge margin',
+      min: 0,
+      max: 50,
+      step: 0.5,
+      decimals: 2,
+    },
     {
       field: 'clearance',
       label: 'part clearance',
@@ -161,6 +207,166 @@
       step: 0.5,
       decimals: 2,
     },
+  ];
+
+  const profileControls: MachineControl[] = [
+    {
+      field: 'toolNumber',
+      label: 'tool number',
+      kind: 'count',
+      min: 1,
+      max: 20,
+      step: 1,
+      decimals: 0,
+    },
+    {
+      field: 'toolDiameter',
+      label: 'tool diameter',
+      kind: 'length',
+      min: 0.5,
+      max: 25,
+      step: 0.025,
+      decimals: 3,
+    },
+    {
+      field: 'spindleRpm',
+      label: 'spindle',
+      kind: 'count',
+      min: 1000,
+      max: 30000,
+      step: 100,
+      decimals: 0,
+      unit: 'rpm',
+    },
+    {
+      field: 'feedRate',
+      label: 'feed rate',
+      kind: 'rate',
+      min: 100,
+      max: 6000,
+      step: 50,
+      decimals: 0,
+    },
+    {
+      field: 'plungeRate',
+      label: 'plunge rate',
+      kind: 'rate',
+      min: 50,
+      max: 2000,
+      step: 25,
+      decimals: 0,
+    },
+    {
+      field: 'depthPerPass',
+      label: 'depth per pass',
+      kind: 'length',
+      min: 0.5,
+      max: 25,
+      step: 0.5,
+      decimals: 2,
+    },
+    {
+      field: 'throughAllowance',
+      label: 'cut past stock',
+      kind: 'length',
+      min: 0,
+      max: 5,
+      step: 0.1,
+      decimals: 2,
+    },
+    {
+      field: 'retractHeight',
+      label: 'retract height',
+      kind: 'length',
+      min: 1,
+      max: 50,
+      step: 1,
+      decimals: 2,
+    },
+  ];
+
+  const tabControls: MachineControl[] = [
+    {
+      field: 'tabCount',
+      label: 'tabs per part',
+      kind: 'count',
+      min: 0,
+      max: 12,
+      step: 1,
+      decimals: 0,
+    },
+    {
+      field: 'tabWidth',
+      label: 'tab width',
+      kind: 'length',
+      min: 0,
+      max: 40,
+      step: 1,
+      decimals: 2,
+    },
+    {
+      field: 'tabHeight',
+      label: 'tab thickness',
+      kind: 'length',
+      min: 0,
+      max: 20,
+      step: 0.5,
+      decimals: 2,
+    },
+  ];
+
+  const engraveControls: MachineControl[] = [
+    {
+      field: 'engraveToolNumber',
+      label: 'tool number',
+      kind: 'count',
+      min: 1,
+      max: 20,
+      step: 1,
+      decimals: 0,
+    },
+    {
+      field: 'engraveDiameter',
+      label: 'tool diameter',
+      kind: 'length',
+      min: 0.5,
+      max: 25,
+      step: 0.025,
+      decimals: 3,
+    },
+    {
+      field: 'engraveDepth',
+      label: 'engrave depth',
+      kind: 'length',
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      decimals: 2,
+    },
+    {
+      field: 'engraveFeed',
+      label: 'feed rate',
+      kind: 'rate',
+      min: 100,
+      max: 4000,
+      step: 50,
+      decimals: 0,
+    },
+    {
+      field: 'engraveRpm',
+      label: 'spindle',
+      kind: 'count',
+      min: 1000,
+      max: 30000,
+      step: 100,
+      decimals: 0,
+      unit: 'rpm',
+    },
+  ];
+
+  const millingDirections: { value: MillingDirection; label: string }[] = [
+    { value: 'climb', label: 'Climb' },
+    { value: 'conventional', label: 'Conventional' },
   ];
 
   const labelStyles: { value: LabelStyle; label: string }[] = [
@@ -176,6 +382,7 @@
   ];
   const panelHelpId = 'param-panel-help';
   const sheetHelpId = 'param-panel-sheet-help';
+  const machineHelpId = 'param-panel-machine-help';
 
   function unitLabel(kind: ParamKind): string {
     if (kind === 'angle') {
@@ -283,6 +490,74 @@
 
   function sheetFieldName(field: SheetNumberField): string {
     return `sheet.${field}`;
+  }
+
+  function machineFieldName(field: MachineNumberField): string {
+    return `machine.${field}`;
+  }
+
+  /** Counts are unitless numbers; lengths and rates follow the display unit. */
+  function machineConverts(kind: MachineKind): boolean {
+    return kind !== 'count';
+  }
+
+  function machineUnitLabel(control: MachineControl): string {
+    if (control.unit !== undefined) {
+      return control.unit;
+    }
+
+    if (control.kind === 'count') {
+      return '';
+    }
+
+    const base = store.design.displayUnit === 'mm' ? 'mm' : 'in';
+
+    return control.kind === 'rate' ? `${base}/min` : base;
+  }
+
+  function machineSliderValue(control: MachineControl): number {
+    const value = store.machine[control.field];
+
+    return machineConverts(control.kind) ? sliderBound(value) : value;
+  }
+
+  function machineBound(control: MachineControl, valueMm: number): number {
+    return machineConverts(control.kind) ? sliderBound(valueMm) : valueMm;
+  }
+
+  function machineStep(control: MachineControl): number {
+    return machineConverts(control.kind)
+      ? sliderStep(control.step)
+      : control.step;
+  }
+
+  function machineText(control: MachineControl): string {
+    const value = store.machine[control.field];
+
+    return machineConverts(control.kind)
+      ? formatLength(value, control.decimals)
+      : String(value);
+  }
+
+  function applyMachineNumber(control: MachineControl, raw: string): void {
+    const value = machineConverts(control.kind)
+      ? parseFromDisplay(raw, store.design.displayUnit)
+      : Number(raw.trim());
+
+    if (Number.isFinite(value)) {
+      store.setMachineNumber(control.field, value);
+    }
+  }
+
+  function updateMachineFromInput(control: MachineControl, event: Event): void {
+    applyMachineNumber(control, inputValue(event));
+  }
+
+  function updateMachineFromSlider(
+    control: MachineControl,
+    event: Event,
+  ): void {
+    applyMachineNumber(control, inputValue(event));
   }
 
   function sliderBound(valueMm: number): number {
@@ -855,7 +1130,149 @@
       {/if}
     </div>
   </details>
+
+  {#if store.sheet.enabled}
+    <details>
+      <summary aria-describedby={machineHelpId}>CNC / G-code</summary>
+      <div class="group-body">
+        <p id={machineHelpId} class="group-note">
+          Posts each nested sheet to a ready-to-run program. Unlike the SVGs,
+          this <em>does</em> offset for the tool — so part clearance must be at least
+          one tool diameter. Work zero is the stock's lower-left corner with Z zero
+          at its top surface. Labels are engraved before anything is cut free.
+        </p>
+
+        <label class="control-row toggle-row">
+          <span class="control-label">export g-code</span>
+          <input
+            type="checkbox"
+            checked={store.machine.enabled}
+            aria-describedby={machineHelpId}
+            onchange={(event) =>
+              store.setMachineFlag(
+                'enabled',
+                (event.currentTarget as HTMLInputElement).checked,
+              )}
+          />
+        </label>
+
+        {#if store.machine.enabled}
+          <label class="control-row">
+            <span class="control-label">post processor</span>
+            <select
+              aria-label="Post processor"
+              aria-describedby={machineHelpId}
+              value={store.machine.post}
+              onchange={(event) =>
+                store.setMachinePost(
+                  (event.currentTarget as HTMLSelectElement).value,
+                )}
+            >
+              {#each POST_PROCESSORS as post (post.id)}
+                <option value={post.id}>{post.description}</option>
+              {/each}
+            </select>
+          </label>
+
+          <label class="control-row">
+            <span class="control-label">milling direction</span>
+            <select
+              aria-label="Milling direction"
+              aria-describedby={machineHelpId}
+              value={store.machine.millingDirection}
+              onchange={(event) =>
+                store.setMillingDirection(
+                  (event.currentTarget as HTMLSelectElement)
+                    .value as MillingDirection,
+                )}
+            >
+              {#each millingDirections as direction (direction.value)}
+                <option value={direction.value}>{direction.label}</option>
+              {/each}
+            </select>
+          </label>
+
+          <p class="subgroup-label">Profile cut</p>
+          {#each profileControls as control (control.field)}
+            {@render machineRow(control)}
+          {/each}
+
+          <p class="subgroup-label">Holding tabs</p>
+          {#each tabControls as control (control.field)}
+            {@render machineRow(control)}
+          {/each}
+
+          <label class="control-row toggle-row">
+            <span class="control-label">engrave labels</span>
+            <input
+              type="checkbox"
+              checked={store.machine.engraveLabels}
+              aria-describedby={machineHelpId}
+              onchange={(event) =>
+                store.setMachineFlag(
+                  'engraveLabels',
+                  (event.currentTarget as HTMLInputElement).checked,
+                )}
+            />
+          </label>
+
+          {#if store.machine.engraveLabels}
+            {#each engraveControls as control (control.field)}
+              {@render machineRow(control)}
+            {/each}
+          {/if}
+        {/if}
+      </div>
+    </details>
+  {/if}
 </section>
+
+{#snippet machineRow(control: MachineControl)}
+  {@const fieldName = machineFieldName(control.field)}
+  {@const issue = issueForField(fieldName)}
+  {@const sliderMin = machineBound(control, control.min)}
+  {@const sliderMax = machineBound(control, control.max)}
+  {@const currentValue = machineSliderValue(control)}
+  <label class="control-row" class:invalid={fieldHasIssue(fieldName)}>
+    <span class="control-label">{control.label}</span>
+    <input
+      class="slider"
+      type="range"
+      min={sliderMin}
+      max={sliderMax}
+      step={machineStep(control)}
+      value={currentValue}
+      style={rangeStyle(currentValue, sliderMin, sliderMax, Boolean(issue))}
+      aria-label={control.label}
+      aria-invalid={issue?.tier === 'hard'}
+      aria-describedby={describedByForField(fieldName)}
+      oninput={(event) => updateMachineFromSlider(control, event)}
+    />
+    <span class="numeric">
+      <input
+        type="text"
+        inputmode="decimal"
+        value={machineText(control)}
+        aria-label={`${control.label} value`}
+        aria-invalid={issue?.tier === 'hard'}
+        aria-describedby={describedByForField(fieldName)}
+        onchange={(event) => updateMachineFromInput(control, event)}
+      />
+      <span>{machineUnitLabel(control)}</span>
+    </span>
+    {#if issue}
+      <span
+        id={issueIdForField(fieldName)}
+        class:hard={issue.tier === 'hard'}
+        class:soft={issue.tier === 'soft'}
+        class="field-note"
+      >
+        {issue.tier === 'hard' ? '✕' : '⚠'}
+        {issue.message}
+      </span>
+    {/if}
+  </label>
+{/snippet}
 
 <style>
   .param-panel {
@@ -906,6 +1323,15 @@
     color: var(--ink-faint);
     font-size: 0.68rem;
     line-height: 1.5;
+  }
+  .subgroup-label {
+    margin: 4px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--edge);
+    color: var(--ink-dim);
+    font: var(--type-label);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .toggle-row {
@@ -1228,7 +1654,10 @@
 
   .source-row summary {
     display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, 88px) minmax(0, 1fr) minmax(0, auto);
+    grid-template-columns: minmax(0, auto) minmax(0, 88px) minmax(
+        0,
+        1fr
+      ) minmax(0, auto);
     gap: 8px;
     padding: 8px;
     font-family: 'IBM Plex Mono', monospace;

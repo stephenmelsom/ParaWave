@@ -23,7 +23,9 @@ export function computeGeometry(request: ComputeRequest): ComputeResult {
   return result;
 }
 
-export function meshTransferList(mesh: MeshBuffers | undefined): Transferable[] {
+export function meshTransferList(
+  mesh: MeshBuffers | undefined,
+): Transferable[] {
   if (!mesh) {
     return [];
   }

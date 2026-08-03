@@ -24,9 +24,17 @@ There is no simple, free, web-based tool that goes straight from "a few paramete
 
 ## 4. Non-goals (v1)
 - No user accounts, cloud save, or design sharing.
-- No toolpath, kerf, or tool-diameter compensation (export true geometry; CAM applies offset).
-  Nesting clearance is *spacing* between parts only, not a geometry offset.
-- No engraving, registration holes, mounting slots, or joinery features on slats.
+- ~~No toolpath, kerf, or tool-diameter compensation (export true geometry; CAM applies
+  offset). Nesting clearance is *spacing* between parts only, not a geometry offset.~~
+  **Superseded — see REQUIREMENTS §3.9 (FR-CAM).** Still true of the SVG output, which remains
+  true geometry for a CAM tool to offset. But ParaWave now also emits optional, off-by-default
+  g-code that performs the CAM step itself: outside-contour offset at the tool radius, depth
+  passes, holding tabs, and label engraving, posted for a named controller. Where g-code is
+  enabled, nesting clearance becomes a *cutting constraint* — it must be at least one tool
+  diameter (FR-VAL.17).
+- No registration holes, mounting slots, or joinery features on slats. Slat-number engraving
+  is available in g-code output only (FR-CAM.7); the SVG export carries labels as reference
+  geometry, not as a cut layer (FR-EXP.5).
 - No horizontal-slat or curved-wall layouts; vertical slats on a flat wall only.
 - No material/cost estimation or cut-time estimation.
 
@@ -169,8 +177,12 @@ slicing or export pipeline.
 - Smarter nesting: multi-row bin packing, mirroring where the show face allows it, 90°
   rotation, and reordering parts away from strict fin order.
 - More wave families (Gaussian bumps, noise/terrain, image-driven height maps).
-- Optional engraving (slat numbers), registration holes, and mounting/joinery features.
-- Kerf/tool-diameter compensation; DXF export; horizontal slats and non-flat walls.
+- Registration holes and mounting/joinery features. *(Slat-number engraving and
+  tool-diameter compensation shipped — see FR-CAM.)*
+- More post processors (GRBL, generic), a loader for user-supplied Carbide Create post files,
+  ramped/helical plunge entry, and cutting the shared corridor between adjacent parts once
+  rather than twice.
+- A live toolpath preview; DXF export; horizontal slats and non-flat walls.
 
 ## 15. Open questions
 - Default values and sane min/max ranges for each parameter (to be set in requirements doc).

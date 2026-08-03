@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SEGMENT_WARN,
   bezierTForY,
+  blocksGeometry,
   buildMesh,
   collectRadialKinks,
   computeReadouts,
@@ -26,7 +27,13 @@ import {
   toDisplayValue,
   validateDesign,
 } from './index';
-import type { BezierSeg, Design, WaveConfig } from './types';
+import type {
+  BezierSeg,
+  Design,
+  MachineConfig,
+  SheetConfig,
+  WaveConfig,
+} from './types';
 
 const baseDesign: Design = {
   H: 120,
@@ -52,7 +59,11 @@ function designWithWave(wave: WaveConfig): Design {
   };
 }
 
-function maxFitError(design: Design, xCenter: number, segments: BezierSeg[]): number {
+function maxFitError(
+  design: Design,
+  xCenter: number,
+  segments: BezierSeg[],
+): number {
   const field = createWaveField(design.wave);
   let maxError = 0;
 
@@ -142,7 +153,11 @@ describe('geometry and readouts', () => {
     expect(protrusionFromWaveValue(baseDesign, 1)).toBe(40);
     expect(readouts.stockThickness).toBe(18);
     expect(readouts.declaredDepthRange).toEqual({ min: 5, max: 40 });
-    expect(readouts.totalFootprint).toEqual({ width: 180, height: 120, depth: 40 });
+    expect(readouts.totalFootprint).toEqual({
+      width: 180,
+      height: 120,
+      depth: 40,
+    });
   });
 });
 
@@ -210,9 +225,9 @@ describe('Hermite and adaptive fitting', () => {
     const path = fitPath(design, 90, 3);
 
     expect(path.segments.length).toBeGreaterThan(0);
-    expect(maxFitError(design, path.xCenter, path.segments)).toBeLessThanOrEqual(
-      design.fitTolerance,
-    );
+    expect(
+      maxFitError(design, path.xCenter, path.segments),
+    ).toBeLessThanOrEqual(design.fitTolerance);
   });
 
   it('injects an exact boundary at a radial center kink', () => {
@@ -313,6 +328,154 @@ describe('validation', () => {
   });
 });
 
+describe('CNC toolpath validation', () => {
+  const sheet: SheetConfig = {
+    enabled: true,
+    width: 762,
+    height: 762,
+    margin: 10,
+    clearance: 6,
+    labelStyle: 'text',
+  };
+
+  const machine: MachineConfig = {
+    enabled: true,
+    post: 'onefinity-buildbotics',
+    millingDirection: 'climb',
+    toolNumber: 1,
+    toolDiameter: 3.175,
+    spindleRpm: 18000,
+    feedRate: 2000,
+    plungeRate: 500,
+    depthPerPass: 3,
+    throughAllowance: 0.5,
+    retractHeight: 5,
+    tabCount: 4,
+    tabWidth: 8,
+    tabHeight: 3,
+    engraveLabels: true,
+    engraveToolNumber: 1,
+    engraveDiameter: 3.175,
+    engraveDepth: 0.6,
+    engraveFeed: 1500,
+    engraveRpm: 18000,
+  };
+
+  it('leaves the shipped defaults exportable', () => {
+    const result = validateDesign(baseDesign, { sheet, machine });
+
+    expect(result.hardBlocks).toEqual([]);
+    expect(result.exportEnabled).toBe(true);
+  });
+
+  it('blocks export when clearance is under the tool diameter (FR-VAL.17)', () => {
+    // A 1/4" bit needs the corridor widened: two contours each pushed out by a
+    // radius would otherwise meet in the middle of a 6 mm gap.
+    const result = validateDesign(baseDesign, {
+      sheet,
+      machine: { ...machine, toolDiameter: 6.35 },
+    });
+
+    expect(result.exportEnabled).toBe(false);
+    expect(result.hardBlocks.map((issue) => issue.field)).toEqual(
+      expect.arrayContaining(['sheet.clearance', 'machine.toolDiameter']),
+    );
+    expect(result.hardBlocks[0]?.message).toContain(
+      'at least the tool diameter',
+    );
+  });
+
+  it('blocks export when the margin is under the tool radius (FR-VAL.18)', () => {
+    const result = validateDesign(baseDesign, {
+      sheet: { ...sheet, margin: 1 },
+      machine,
+    });
+
+    expect(result.exportEnabled).toBe(false);
+    expect(result.hardBlocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'FR-VAL.18', field: 'sheet.margin' }),
+      ]),
+    );
+  });
+
+  it('blocks non-positive cutting parameters (FR-VAL.19)', () => {
+    const result = validateDesign(baseDesign, {
+      sheet,
+      machine: { ...machine, feedRate: 0, depthPerPass: -1 },
+    });
+
+    expect(result.exportEnabled).toBe(false);
+    expect(result.hardBlocks.map((issue) => issue.field)).toEqual(
+      expect.arrayContaining(['machine.feedRate', 'machine.depthPerPass']),
+    );
+  });
+
+  it('ignores engrave settings when labels are not being engraved', () => {
+    const result = validateDesign(baseDesign, {
+      sheet,
+      machine: { ...machine, engraveLabels: false, engraveFeed: 0 },
+    });
+
+    expect(result.exportEnabled).toBe(true);
+  });
+
+  it('warns without blocking when tabs are as tall as the cut (FR-VAL.20)', () => {
+    const result = validateDesign(baseDesign, {
+      sheet,
+      machine: { ...machine, tabHeight: 40 },
+    });
+
+    expect(result.exportEnabled).toBe(true);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'FR-VAL.20',
+          field: 'machine.tabHeight',
+        }),
+      ]),
+    );
+  });
+
+  it('blocks export but not geometry, since cutting cannot change shape', () => {
+    const result = validateDesign(baseDesign, {
+      sheet,
+      machine: { ...machine, toolDiameter: 6.35, feedRate: 0 },
+    });
+
+    expect(result.exportEnabled).toBe(false);
+    // Every hard block here is a machine rule, so the preview keeps computing.
+    expect(result.hardBlocks.some(blocksGeometry)).toBe(false);
+  });
+
+  it('still pauses geometry for a design-level block', () => {
+    const result = validateDesign({ ...baseDesign, H: 0 }, { sheet, machine });
+
+    expect(result.hardBlocks.some(blocksGeometry)).toBe(true);
+  });
+
+  it('stays silent when g-code output or nesting is switched off', () => {
+    const broken: MachineConfig = {
+      ...machine,
+      toolDiameter: 6.35,
+      feedRate: 0,
+    };
+
+    expect(
+      validateDesign(baseDesign, {
+        sheet,
+        machine: { ...broken, enabled: false },
+      }).exportEnabled,
+    ).toBe(true);
+    expect(
+      validateDesign(baseDesign, {
+        sheet: { ...sheet, enabled: false },
+        machine: broken,
+      }).exportEnabled,
+    ).toBe(true);
+  });
+});
+
 describe('mesh construction', () => {
   it('builds merged indexed buffers, normals, and fin triangle ranges', () => {
     const paths = [fitPath(baseDesign, 42, 0), fitPath(baseDesign, 66, 1)];
@@ -332,7 +495,10 @@ describe('mesh construction', () => {
 
 describe('bezierTForY and evaluateBezierAtY', () => {
   it('evaluateBezierAtY returns the same point as evaluateBezier at the matching t', () => {
-    const seg = hermiteCubic({ start: { y: 0, z: 5, dzdy: 0 }, end: { y: 10, z: 15, dzdy: 0 } });
+    const seg = hermiteCubic({
+      start: { y: 0, z: 5, dzdy: 0 },
+      end: { y: 10, z: 15, dzdy: 0 },
+    });
     const atY5 = evaluateBezierAtY(seg, 5);
     const atT05 = evaluateBezier(seg, 0.5);
 
@@ -341,7 +507,10 @@ describe('bezierTForY and evaluateBezierAtY', () => {
   });
 
   it('bezierTForY returns 0 for a zero-span segment', () => {
-    const seg = hermiteCubic({ start: { y: 5, z: 10, dzdy: 0 }, end: { y: 5, z: 10, dzdy: 0 } });
+    const seg = hermiteCubic({
+      start: { y: 5, z: 10, dzdy: 0 },
+      end: { y: 5, z: 10, dzdy: 0 },
+    });
 
     expect(bezierTForY(seg, 5)).toBe(0);
   });

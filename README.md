@@ -37,9 +37,10 @@ default design fits 13 slats per sheet instead of the 11 a fixed-pitch layout ma
 
 Two things worth knowing:
 
-- **Clearance is spacing only.** ParaWave does not kerf-compensate the geometry — set your
-  outside-contour offset in your CAM tool as usual. Size the clearance to your tool diameter
-  plus a safety gap.
+- **Clearance is spacing only — for the SVGs.** The geometry in `slats/` and `sheets/` is not
+  kerf-compensated; set your outside-contour offset in your CAM tool as usual. Size the
+  clearance to your tool diameter plus a safety gap. (If you use the g-code export below,
+  ParaWave does the offsetting, and clearance becomes a hard requirement rather than advice.)
 - **Rotation, never mirroring.** Parts are only ever rotated 180° in-plane, so a cut piece is
   identical regardless of how it was nested. Your plywood's show face always ends up on the
   face you expect.
@@ -56,8 +57,34 @@ conversion. The two usual factors are **3.7795×** too large (96 DPI) and **0.26
 small (its inverse).
 
 Part labels live in `<g id="labels">` and can drive a shallow engrave toolpath, or be
-deleted. If Carbide Create drops them on import, switch **part labels** to *engravable
-outlines* — that emits the digits as ordinary stroked paths, which every importer handles.
+deleted. If Carbide Create drops them on import, switch **part labels** to _engravable
+outlines_ — that emits the digits as ordinary stroked paths, which every importer handles.
+
+## G-code export
+
+The **CNC / G-code** panel skips the CAM round-trip entirely and posts each nested sheet
+straight to a ready-to-run program in `gcode/sheet_001.nc`, beside the SVG it was generated
+from. It is off by default and requires stock nesting to be on.
+
+Each program engraves the part labels, then profiles every slat free of the stock:
+
+- **Outside-contour offset** at one tool radius, so parts come out at nominal size. This is
+  the one real difference from the SVG path — and it means **part clearance must be at least
+  one tool diameter**, or the cutter reaches into the neighbouring part. ParaWave blocks the
+  export and says so if it isn't. (The shipped default is a 1/8" bit against 6 mm clearance;
+  a 1/4" bit needs the clearance raised.)
+- **Equal depth passes** down to the stock thickness plus a small overcut, none deeper than
+  your configured maximum.
+- **Ramped holding tabs**, spaced evenly around each contour by arc length.
+- **Work zero at the stock's lower-left corner**, Z zero on its top surface, cuts negative.
+
+Output targets a **Onefinity (Buildbotics)** controller — `G90`/`G21`, `G53 G0 Z-5` retracts
+before tool changes, `M3` + `G4 P8` spin-up, `M6` tool changes, `M05`/`M02` to finish. Other
+dialects drop in as additional post processors.
+
+> **Simulate before you cut.** Open the `.nc` in Camotics or ncviewer next to
+> `sheets/sheet_001.svg` and check the layouts agree, then dry-run above the stock. Confirm
+> the climb/conventional direction on a test cut before committing to a full sheet.
 
 ## Export format
 

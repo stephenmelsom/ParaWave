@@ -239,10 +239,40 @@ while the condition holds.)*
   and still appear in the cut list with an empty sheet column. `[PRD §10]`
 - **FR-VAL.16** — Nesting requiring more than ~50 sheets (tunable) → *"Design needs {n} sheets
   of stock — consider a larger sheet."* `[PRD §10]`
+- **FR-VAL.20** — When g-code output is enabled: tab height at or beyond the cut depth →
+  *"Tabs are as tall as the cut, so parts will never be released."*; engrave depth at or
+  beyond the stock thickness → *"Label engraving is as deep as the stock is thick."*
+  `[PRD §10]`
 
   > FR-VAL.15–.16 depend on a nest result, which depends on worker output. Because export
   > enablement is decided in the synchronous tier (FR-UI.3), these SHALL be soft warnings —
   > a hard block here would appear in the UI without actually disabling export.
+
+**CNC toolpath blocks** *(FR-VAL.17–.19; active only when `machine.enabled` **and**
+`sheet.enabled`. Accept: export disabled, field-anchored message.)*
+
+- **FR-VAL.17** — `clearance < toolDiameter` → *"Part clearance must be at least the tool
+  diameter, or the cutter will cut into the neighbouring part."* The message SHALL be anchored
+  on **both** `sheet.clearance` and `machine.toolDiameter`, because either one resolves it.
+  *Rationale:* FR-NEST.4 places flat back edges exactly `clearance` apart, mating wavy edges a
+  `clearance` past their mating bound, and rows a `clearance` apart. The closest approach is
+  therefore always `clearance`, and two contours each offset outward by a tool radius meet as
+  soon as `clearance < 2r`. `[PRD §10]`
+- **FR-VAL.18** — `margin < toolDiameter / 2` → *"Edge margin is smaller than the tool radius,
+  so the toolpath would run off the stock."* `[PRD §10]`
+- **FR-VAL.19** — Non-positive tool diameter, spindle speed, feed rate, plunge rate, depth per
+  pass or retract height (and, when label engraving is on, the engrave equivalents) →
+  field-anchored *"Value must be greater than zero."*; negative through allowance, tab count,
+  tab width or tab height → *"Value cannot be negative."* `[PRD §10]`
+
+  > Unlike FR-VAL.15–.16, every FR-VAL.17–.20 rule is computable from `Design` +
+  > `SheetConfig` + `MachineConfig` alone, so these genuinely belong in the synchronous cheap
+  > tier and genuinely disable export.
+  >
+  > FR-VAL.17–.20 SHALL block **export only**, never geometry computation: no machine setting
+  > can move a control point, so a mistyped feed rate must not freeze the 3D preview. The
+  > implementation distinguishes them by code (`blocksGeometry`), not by field, because
+  > FR-VAL.17 and .18 are machine rules deliberately anchored on sheet fields.
 
 ### 3.6 FR-EXP — Export
 - **FR-EXP.1** — Export SHALL produce one SVG per slat, true geometry, at **1:1 real-world
@@ -314,14 +344,63 @@ while the condition holds.)*
   nested transforms.*
 - **FR-NEST.7** — Export SHALL emit a `cutlist.csv` mapping every slat to its sheet, position,
   rotation, and size. Every slat SHALL appear exactly once, including unnestable slats.
-- **FR-NEST.8** — Part clearance is inter-part spacing only. The system SHALL NOT offset part
-  geometry for kerf or tool diameter (consistent with PRD §4).
+- **FR-NEST.8** — Part clearance is inter-part spacing only **for SVG output**: the system
+  SHALL NOT offset the geometry in `slats/` or `sheets/` for kerf or tool diameter, so those
+  files remain true geometry for a CAM tool to offset itself.
+  > **Extended by §3.9 (FR-CAM):** g-code output *is* the CAM step, so it does offset by the
+  > tool radius. That does not change the SVGs, but it does make clearance a cutting
+  > constraint rather than a preference — see FR-VAL.17.
 - **FR-NEST.9** — Part labels SHALL be emitted in a group separate from cut geometry, and
   SHALL be authored so they read upright after the CAM tool applies its Y-axis flip
   (FR-EXP.6). A stroked-outline label style SHALL be available for importers that discard SVG
   text.
 - **FR-NEST.10** — Disabling nesting SHALL leave the per-slat export path fully functional and
   SHALL suppress all stock-sheet validation.
+
+---
+
+### 3.9 FR-CAM — G-code output
+
+> Supersedes the PRD §4 non-goal *"No toolpath, kerf, or tool-diameter compensation"* for this
+> output format only. The SVG export remains true geometry (FR-EXP, FR-NEST); g-code is an
+> **additional, opt-out-by-default** format that performs the CAM step ParaWave previously
+> delegated to Carbide Create. Machine configuration lives in `MachineConfig`, a sibling of
+> `SheetConfig` — never a member of `Design`, for the reason in §1.7 and TS-D12.
+
+- **FR-CAM.1 — Opt-in and prerequisites.** G-code output SHALL be off by default and SHALL
+  require stock nesting to be enabled; there is nothing to cut without stock.
+  *Accept:* with `machine.enabled = false` the archive is byte-identical to before.
+- **FR-CAM.2 — One program per sheet.** Export SHALL emit one program per nested sheet into
+  `gcode/`, named to match the sheet SVGs (`gcode/sheet_001.nc` beside
+  `sheets/sheet_001.svg`), generated from the same `nestSheets` result.
+  *Accept:* file counts and indices agree with `sheets/` and with `cutlist.csv`.
+- **FR-CAM.3 — Outside-contour offset.** Profile toolpaths SHALL be offset outward by one tool
+  radius, so parts come out at nominal size. The offset SHALL be an exact locus — every point
+  at the tool radius from the part boundary — with self-intersection loops removed, not a
+  sampled approximation. *Accept:* no contour point is nearer the part than the radius, none
+  is farther, and no contour self-intersects (V-8).
+- **FR-CAM.4 — Work origin.** X0 Y0 SHALL be the stock's lower-left corner and Z0 the stock's
+  top surface, with cuts negative. Sheet coordinates SHALL be used as machine coordinates
+  directly — the Y-down authoring of FR-EXP.6 is what stands parts upright in a Y-up
+  workspace, so a flip here would mirror every part.
+- **FR-CAM.5 — Depth passes.** The cut SHALL reach `slatWidth + throughAllowance` in equal
+  passes, none deeper than the configured maximum. *Accept:* no sliver final pass.
+- **FR-CAM.6 — Holding tabs.** Configurable tabs SHALL be placed at even **arc-length**
+  intervals (not vertex intervals, which would cluster them where the wave curves tightly),
+  ramped rather than stepped, and clear of the contour's plunge point.
+- **FR-CAM.7 — Engrave before profile.** When enabled, part labels SHALL be engraved before
+  any profile pass, using the same glyphs and anchors as the stroked SVG labels (FR-NEST.9).
+  *Accept:* no cutting move precedes the last engraving move.
+- **FR-CAM.8 — Post processor.** Output SHALL be produced by a named, replaceable post
+  processor from a machine-agnostic operation list. v1 ships `onefinity-buildbotics`
+  (`G90`/`G21`, `G53 G0 Z-5` safe retracts, `M3 S…` + `G4 P8` spin-up, `M6 T…` tool changes,
+  modally suppressed axis words at 3 decimals, `M05`/`M02` footer, comments in parentheses).
+- **FR-CAM.9 — Provenance.** The manifest SHALL record the `MachineConfig` a program was
+  posted with, as a sibling of `stock` and `design`, and SHALL be `null` when g-code was not
+  exported. Schema version bumped to 3.
+- **FR-CAM.10 — Safety.** No rapid SHALL traverse in XY below the retract height, and no move
+  SHALL exceed the configured cut depth. While parked at machine safe Z, a work retract SHALL
+  be deferred until after the XY travel, so the tool never descends through workholding.
 
 ---
 
@@ -405,9 +484,9 @@ material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF e
 | §7 Inputs | FR-IN.1–.5, §5 |
 | §8 Wave library | FR-WAVE.1–.4, FR-VAL.3, FR-VAL.11, §1.7-E/F |
 | §9 Visualization | FR-VIZ.1–.6, FR-VAL.6, FR-VAL.9, NFR-PERF.1–.3 |
-| §10 Export | FR-EXP.1–.9, FR-NEST.1–.10, FR-VIZ.3–.4, FR-VAL.8/.10/.12–.16, §1.7-A/B/C/D/G |
+| §10 Export | FR-EXP.1–.9, FR-NEST.1–.10, FR-CAM.1–.10, FR-VIZ.3–.4, FR-VAL.8/.10/.12–.20, §1.7-A/B/C/D/G |
 | §11 User flow | FR-UI.1–.4 |
-| §12 Constraints & validation | FR-VAL.1–.16, FR-IN.5, A1–A5, NFR-COMPAT, NFR-PRIV, NFR-ACCURACY |
+| §12 Constraints & validation | FR-VAL.1–.20, FR-IN.5, A1–A5, NFR-COMPAT, NFR-PRIV, NFR-ACCURACY |
 | §13 Success metrics | NFR-PERF.1, NFR-ACCURACY.1, NFR-A11Y, FR-UI.1 |
 | §14 Future considerations | §6 Out of scope, FR-VIZ.5 |
 | §15 Open questions | §5 (defaults set), §1.7-B (Y convention resolved), §8 (residual issues) |
@@ -454,3 +533,12 @@ material/cost or cut-time estimation; assembled 2D front elevation (v1.1); DXF e
   object**, not one compound path; no repair/heal prompt appears; an outside-contour toolpath
   offsets outward on every part. Also record **whether `<text>` labels survive import** —
   that outcome decides the FR-NEST.9 default (OI-7).
+- **V-8 — G-code correctness.** Automated: for a nested design, confirm every offset contour
+  lies on the tool-radius locus and never self-intersects (FR-CAM.3); that all engraving
+  precedes all cutting (FR-CAM.7); that no XY rapid happens below the retract height and no
+  move exceeds the cut depth (FR-CAM.10); and that a part's machine coordinates match its
+  sheet coordinates (FR-CAM.4). Manual, **before any real cut**: open `gcode/sheet_001.nc` in
+  a simulator (Camotics, ncviewer) alongside `sheets/sheet_001.svg` and confirm the layouts
+  agree, labels read upright, and tabs appear only on the passes below the tab top. Then dry-
+  run above the stock on the machine, watching the `G53 G0 Z-5` retract and the first move
+  after each tool change.

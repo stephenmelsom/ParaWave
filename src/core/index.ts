@@ -1,3 +1,4 @@
+export * from './cam';
 export * from './clone';
 export * from './fit';
 export * from './geometry';

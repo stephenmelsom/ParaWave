@@ -18,12 +18,22 @@
     nest: NestResult | null;
   }
 
-  let { design, readouts, actualDepthRange, totalSegments, sheet, nest }: Props =
-    $props();
+  let {
+    design,
+    readouts,
+    actualDepthRange,
+    totalSegments,
+    sheet,
+    nest,
+  }: Props = $props();
 
   let sheetCountKnown = $derived(sheet.enabled && nest !== null);
   let stockSummary = $derived(
-    !sheet.enabled ? 'nesting off' : nest ? String(nest.sheetCount) : 'computing',
+    !sheet.enabled
+      ? 'nesting off'
+      : nest
+        ? String(nest.sheetCount)
+        : 'computing',
   );
 
   let declaredSpan = $derived(
@@ -213,18 +223,23 @@
     margin: 0;
   }
 
+  /* Flex, not grid. A two-track grid has to choose between a value track that
+     floors at min-content (widening the panel past its fixed column) and one
+     that can be squeezed to nothing — and a squeezed track sets `42.4%` one
+     glyph per line. Flex wrapping has no such trade-off: the value sits beside
+     its label while it fits and drops to its own full-width line when it does
+     not. */
   dl > div {
-    display: grid;
-    /* Both tracks must be allowed to shrink; a bare `auto` value track floors at
-       min-content and pushes the panel wider than its column. */
-    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 2px 8px;
   }
 
   dt {
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   dd {
@@ -234,7 +249,9 @@
     font-size: 0.74rem;
     font-variant-numeric: tabular-nums;
     text-align: right;
-    overflow-wrap: anywhere;
+    /* Break between the parts of a compound value, never inside one: `anywhere`
+       would split `42.4%` and `13 · 13 · 11` character by character. */
+    overflow-wrap: break-word;
   }
 
   .actual-depth {
@@ -242,7 +259,8 @@
   }
 
   .depth-bar {
-    grid-column: 1 / -1;
+    /* Always its own full-width line under the row it gauges. */
+    flex: 0 0 100%;
     position: relative;
     height: 4px;
     background: var(--cool-dim);

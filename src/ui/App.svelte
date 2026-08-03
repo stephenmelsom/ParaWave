@@ -10,6 +10,8 @@
     createDesignManifest,
     createExportZip,
     downloadExportZip,
+    gcodeExtension,
+    sheetGcodePrograms,
   } from '../export';
   import { createDesignStore } from '../state/design.svelte.ts';
   import {
@@ -109,12 +111,18 @@
     try {
       const design = store.snapshot();
       const stock = store.sheetSnapshot();
+      const machine = store.machineSnapshot();
       const result = await computeExportGeometry(design);
       // Same function and same metrics as the live readout, so the exported
       // layout is the one the user was looking at.
-      const nest = stock.enabled ? nestSheets(result.nest, stock, design.H) : null;
+      const nest = stock.enabled
+        ? nestSheets(result.nest, stock, design.H)
+        : null;
+      // Toolpaths need a nest — there is nothing to cut without stock.
+      const cutting = nest !== null && machine.enabled;
       const manifest = createDesignManifest(design, result.paths.length, {
         stock,
+        machine: cutting ? machine : null,
         nest,
       });
       const archive = await createExportZip({
@@ -133,6 +141,18 @@
                 result.paths.length,
                 design.H,
               ),
+            }
+          : {}),
+        ...(cutting && nest
+          ? {
+              gcodePrograms: sheetGcodePrograms(nest, result.paths, {
+                sheet: stock,
+                machine,
+                height: design.H,
+                thickness: design.slatWidth,
+                finCount: result.paths.length,
+              }),
+              gcodeExtension: gcodeExtension(machine),
             }
           : {}),
       });

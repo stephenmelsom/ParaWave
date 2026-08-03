@@ -219,6 +219,40 @@ plumbing.
 
 ---
 
+## M10 — G-code export and post-processing
+
+Adds an optional, off-by-default g-code format alongside the SVGs, performing the CAM step
+ParaWave previously delegated to Carbide Create. *(FR-CAM.1–.10, FR-VAL.17–.20, TS-D13/D14)*
+
+- [x] **M10.1** `core/cam/geom.ts` + `core/cam/offset.ts` — exact outside-contour offset:
+  adaptive flattening, mitered reflex corners, arc-bridged convex corners, y-window-pruned
+  loop removal, run stitching. *(FR-CAM.3, TS-D13)*
+- [x] **M10.2** `core/cam/tabs.ts` — arc-length tab spans and the ramped depth profile, with
+  vertices inserted at every ramp boundary. *(FR-CAM.6)*
+- [x] **M10.3** `core/cam/program.ts` + `core/cam/post/` — the op IR, the `PostProcessor`
+  contract, the registry, and the Onefinity/Buildbotics port. *(FR-CAM.8)*
+- [x] **M10.4** `MachineConfig` on `core/types.ts`, `createDefaultMachine`, store field and
+  setters, `machineSnapshot()`. *(FR-CAM.1)*
+- [x] **M10.5** `core/cam/toolpath.ts` — machine-space op list, engrave-then-profile order,
+  depth passes. Extract `placePoint` / `labelStrokeSegments` / `labelLayout` from
+  `sheet-svg.ts` so both emitters share them. *(FR-CAM.4/.5/.7)*
+- [x] **M10.6** FR-VAL.17–.20 in `core/validation.ts` with `machine` on `ValidationOptions`,
+  plus `blocksGeometry` so machine-only blocks stop export without pausing the preview.
+- [x] **M10.7** `export/gcode.ts`, `gcode/` in the archive, manifest `machine` field and
+  schemaVersion 3, `exportDesign` wiring.
+- [x] **M10.8** ParamPanel CNC / G-code section (DESIGN §5.11).
+- [x] **M10.9** Spec updates (FR-CAM, amended FR-NEST.8 and PRD §4, TS-D13/D14, V-8),
+  CLAUDE.md and README.
+- [ ] **M10.10 — V-8 simulator review and machine dry run (manual).** Open
+  `gcode/sheet_001.nc` in Camotics or ncviewer beside `sheets/sheet_001.svg`: confirm the
+  layouts agree, labels read upright, and tabs appear only on passes below the tab top. Then
+  dry-run above the stock, watching the `G53 G0 Z-5` retract and the first move after each
+  tool change. **Confirm the climb/conventional direction on a test cut** — the derivation is
+  documented at `CLIMB_IS_COUNTER_CLOCKWISE` and inverting it is a one-line fix. *(FR-CAM.3/
+  .6/.10, V-8)*
+
+---
+
 ## Open issues to resolve during implementation
 
 These are carried from the SRS/TECH_SPEC and need a concrete value before the code that depends
@@ -233,5 +267,6 @@ on them can be considered finished:
 | new | M2.11 | Choose `SEED_PER_WAVELENGTH` and `MAX_DEPTH` so a worst-case short-λ design stays ≤ tolerance without pathological segment counts. Validate via M8.3. |
 | OI-7 | M9.8 (V-7 import) | If Carbide Create discards SVG `<text>`, flip the `labelStyle` default to `'stroke'`. |
 | new | M9.1 profiling | `PROFILE_INTERVALS=2048` trades bound tightness (wasted stock) against metric cost; affects tightness only, never correctness. |
+| new | M10.10 | Confirm climb milling on an outside contour is counter-clockwise with M3 on a real cut; invert `CLIMB_IS_COUNTER_CLOCKWISE` if not. |
 | DI-1 | M7.10 | Final hex token values after WCAG AA audit. |
 | DI-3 | M7.5 / M7.8 | Validate grain overlay render cost; drop to static tiled asset if needed. |

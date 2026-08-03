@@ -59,6 +59,9 @@ export function slatSvg(path: FittedPath, design: Design): string {
   ].join('\n');
 }
 
-export function slatSvgs(paths: readonly FittedPath[], design: Design): string[] {
+export function slatSvgs(
+  paths: readonly FittedPath[],
+  design: Design,
+): string[] {
   return paths.map((path) => slatSvg(path, design));
 }

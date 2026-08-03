@@ -349,6 +349,34 @@ it is the headline answer the feature exists to give — plus slats-per-sheet, r
 and stock utilisation rows. Before the first `ComputeResult` it reads `computing`; with
 nesting disabled, `nesting off`.
 
+### 5.11 CNC / G-code section
+A fifth `<details>` group, last in the rail, below Stock Sheet. Unlike the others it is
+**collapsed by default** — most sessions are design sessions, and the group is long. It is
+rendered only while nesting is on: there is nothing to cut without stock (FR-CAM.1), and an
+orphaned machine group would imply otherwise.
+- **Enable toggle** first, same `.control-row` pattern as §5.10, defaulting to **off**. Turning
+  it off collapses everything below it.
+- **Two selects** — post processor and milling direction (climb / conventional) — before any
+  number, because they frame what the numbers mean.
+- **Three labelled subgroups**, separated by a hairline `--edge` rule with an `--ink-dim`
+  `--type-label` caption: *Profile cut*, *Holding tabs*, and the engrave block behind its own
+  toggle. Sixteen sliders in one undifferentiated stack would be unreadable; the captions are
+  the cheapest possible structure that fixes it.
+- **Sliders + paired numeric inputs** reuse §5.1 verbatim. Three unit behaviours share one
+  control: lengths follow the global toggle (mm/in), feeds are lengths per minute (mm/min,
+  in/min), and counts — tool slot, spindle rpm, tab count — never convert and carry either
+  `rpm` or no unit at all.
+- The group note states the two things that actually bite: this output *does* offset for the
+  tool, so clearance must be at least one tool diameter; and work zero is the stock's
+  lower-left corner with Z zero on its top surface.
+- Machine issues bind as `machine.<field>`, so §7.1 validation states apply unchanged. FR-VAL.17
+  deliberately renders on **both** the clearance row (§5.10) and the tool-diameter row, because
+  either one resolves it and the user may be looking at either.
+
+> A machine-only hard block disables Export but must **not** grey out the viewport or pause the
+> preview: no cutting parameter can change a single curve, so freezing the 3D view over a
+> mistyped feed rate would be a lie about cause and effect (FR-VAL.17–.20 scope note).
+
 ---
 
 ## 6. Motion & micro-interactions
@@ -485,6 +513,7 @@ Light-touch but real (SRS §4.6):
 | §5.8 2D inspector | FR-VIZ.3, V-6, FR-GEO.6 / §1.7-B |
 | §5.9 Export button | FR-UI.3, FR-EXP.4, FR-VIZ.4 |
 | §5.10 Stock Sheet | FR-NEST.1/.2/.9/.10, FR-VAL.12–.16, TS-D12 |
+| §5.11 CNC / G-code | FR-CAM.1–.10, FR-VAL.17–.20, TS-D13/D14 |
 | §6 Motion | FR-VIZ.2 (coalesced live updates); NFR-A11Y (reduced motion) |
 | §7.1 Validation states | FR-VAL tiers, FR-UI.3, FR-IN.5, TS-D7 |
 | §7.2 Selection | FR-VIZ.6 |
